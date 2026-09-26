@@ -8,7 +8,7 @@ from oeil_bleu import db, points
 
 def test_migration_idempotente(conn):
     assert db.migrer(conn) == []
-    assert conn.execute("SELECT count(*) FROM terre.source").fetchone()[0] == 5
+    assert conn.execute("SELECT count(*) FROM terre.source").fetchone()[0] == 7
     assert conn.execute("SELECT count(*) FROM terre.zone").fetchone()[0] == 248  # 2 bassins, 5 continents, 241 pays
 
 

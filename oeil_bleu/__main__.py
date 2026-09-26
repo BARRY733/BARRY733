@@ -15,8 +15,11 @@ COLLECTEURS = {
     "deafrica": ("deafrica_wofs", "deafrica"),
     "sentinel1": ("deafrica_s1", "sentinel1"),
     "glofas": ("glofas", "glofas"),
+    "sentinel2": ("sentinel2", "sentinel2"),
+    "gsw": ("jrc_gsw", "gsw"),
+    "wofs_annuel": ("deafrica_wofs", "deafrica:collecter_annuel"),
 }
-HISTORIQUE = {"gdacs", "deafrica", "sentinel1"}   # sources qui savent collecter une saison passée
+HISTORIQUE = {"gdacs", "deafrica", "sentinel1", "sentinel2", "wofs_annuel"}   # sources qui savent collecter une saison passée
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -150,7 +153,8 @@ def collecter(conn, noms: list[str], **periode) -> int:
     for nom in noms:
         code, module = COLLECTEURS[nom]
         try:
-            fonction = import_module(f".collecte.{module}", __package__).collecter
+            module, _, nom_fonction = module.partition(":")
+            fonction = getattr(import_module(f".collecte.{module}", __package__), nom_fonction or "collecter")
             n = executer(conn, code, partial(fonction, **periode))
             print(f"{nom} : {n} observation(s) nouvelle(s)")
         except Exception as e:

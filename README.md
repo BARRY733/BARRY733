@@ -45,7 +45,12 @@ python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
 | `firms` | Foyers de feu VIIRS et leur puissance | Emprise des deux bassins | `FIRMS_MAP_KEY` |
 | `deafrica` | Eau observée par Landsat, et fréquence historique de l'eau | Chaque point surveillé | Aucune |
 | `glofas` | Débit prévu à 1 à 10 jours | Chaque point surveillé | `CDSAPI_KEY` |
-| `sentinel1` | Signal radar VV, qui traverse les nuages | Chaque point surveillé | Aucune |
+| `sentinel1` | Signal radar VV, qui traverse les nuages (Afrique) | Chaque point surveillé | Aucune |
+| `sentinel2` | Eau observée par Sentinel-2 (classification SCL, 20 m, tous les 2 à 5 jours) | Chaque point, monde entier | Aucune |
+| `gsw` | Fréquence historique de l'eau 1984-2021 (JRC Global Surface Water) | Chaque point, monde entier | Aucune |
+| `wofs_annuel` | Passages avec eau et passages dégagés, année par année (Afrique) | Chaque point surveillé | Aucune |
+
+`sentinel2`, `gsw`, `wofs_annuel` et `sentinel1` lisent directement les dépôts publics d'images, sans passer par un catalogue en ligne : la case d'un point se calcule à partir de ses coordonnées (grilles MGRS, EASE 2.0 et carrés de 1° ; `oeil_bleu/collecte/tuiles.py`). Ils ont été vérifiés sur des images réelles (Douna, saison 2024). `gsw` et `wofs_annuel` ne relisent l'historique que pour les points nouveaux.
 
 Chaque passage est noté dans `terre.collecte` (réussi ou échoué, avec l'erreur). Les données vont dans `terre.observation`. Une collecte peut être rejouée sans doublon ; un échec n'enregistre rien de partiel et n'empêche pas les autres sources.
 
@@ -62,7 +67,7 @@ python -m oeil_bleu detecter                   # aujourd'hui
 python -m oeil_bleu detecter --jour 2024-09-10
 ```
 
-Règle centrale : de l'eau vue par satellite sur un point où, par le passé, il y en a moins de 20 % du temps. Sur une fenêtre de 16 jours (deux passages Landsat), la confiance se construit ainsi :
+Règle centrale : de l'eau vue par satellite sur un point où, par le passé, il y en a moins de 20 % du temps. La fréquence de référence exclut toujours l'année analysée : comptages annuels Digital Earth Africa des années précédentes en Afrique, sinon Global Surface Water (1984-2021) ailleurs. La référence utilisée est indiquée dans chaque anomalie. Sur une fenêtre de 16 jours (deux passages Landsat), la confiance se construit ainsi :
 
 | Élément | Effet sur la confiance |
 | --- | --- |

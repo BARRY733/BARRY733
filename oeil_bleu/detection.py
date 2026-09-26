@@ -28,6 +28,8 @@ BAISSE_VV_DB = 3.0            # chute minimale par rapport à la référence du 
 REFERENCE_JOURS = 365         # période de référence radar, avant la fenêtre
 REFERENCE_MIN = 5             # passages radar nécessaires pour établir la référence
 MALUS_RADAR_SEUL = 0.10       # eau vue au radar seulement : moins sûr que l'optique
+ANNEES_MIN = 5                # années de comptages nécessaires pour une référence annuelle
+PASSAGES_MIN = 20             # passages dégagés cumulés nécessaires
 
 
 @dataclass
@@ -42,6 +44,7 @@ class Faits:
     observations: list[int] = field(default_factory=list)
     radar: list[tuple[datetime, float]] = field(default_factory=list)   # (date, VV en dB), fenêtre
     reference_vv: float | None = None            # médiane VV du point sur la période de référence
+    reference: str | None = None                 # d'où vient la fréquence historique
 
 
 @dataclass
@@ -105,6 +108,7 @@ def evaluer(f: Faits) -> Anomalie | None:
         c = round(min(c, 0.95), 2)
         elements |= {
             "frequence_historique": round(f.frequence_historique, 3),
+            "reference": f.reference,
             "eau_vue_le": derniere[0].date().isoformat(),
             "passages_avec_eau": mouille,
             "passages_degages": len(eau),
@@ -126,6 +130,36 @@ def evaluer(f: Faits) -> Anomalie | None:
     return None
 
 
+def frequence_reference(conn, infra_id: int, jour: date, debut: datetime):
+    """Fréquence historique de l'eau au point, calculée sans l'année analysée.
+
+    1. Comptages annuels Digital Earth Africa des années antérieures (Afrique) ;
+    2. sinon la fréquence la plus récente qui s'arrête avant la fenêtre (Global
+       Surface Water 1984-2021, fréquence globale WOfS) ;
+    3. sinon la plus récente disponible, en le signalant.
+    Renvoie ((id d'observation ou None, fréquence), libellé de la référence).
+    """
+    n, mouille, degage, premiere, derniere = conn.execute(
+        "SELECT count(*), sum(valeur), sum((brut->>'passages_degages')::float),"
+        " min((brut->>'annee')::int), max((brut->>'annee')::int)"
+        " FROM terre.observation WHERE infrastructure_id = %s AND variable = 'eau_annuelle'"
+        " AND (brut->>'annee')::int < %s",
+        (infra_id, jour.year),
+    ).fetchone()
+    if n >= ANNEES_MIN and degage and degage >= PASSAGES_MIN:
+        return (None, mouille / degage), f"wofs_annuel_{premiere}-{derniere}"
+    ligne = conn.execute(
+        "SELECT id, valeur, coalesce(brut->>'produit', 'wofs'), observe_le < %s FROM terre.observation"
+        " WHERE infrastructure_id = %s AND variable = 'frequence_eau_historique'"
+        " ORDER BY observe_le < %s DESC, observe_le DESC LIMIT 1",
+        (debut, infra_id, debut),
+    ).fetchone()
+    if ligne is None:
+        return None, None
+    oid, valeur, produit, anterieure = ligne
+    return (oid, valeur), produit + ("" if anterieure else "_inclut_la_periode")
+
+
 def rassembler(conn: psycopg.Connection, jour: date) -> list[Faits]:
     fin = datetime.combine(jour, time.max, tzinfo=timezone.utc)
     debut = fin - timedelta(days=FENETRE_JOURS)
@@ -133,11 +167,7 @@ def rassembler(conn: psycopg.Connection, jour: date) -> list[Faits]:
     for infra_id, nom, geom in conn.execute(
         "SELECT id, nom, geom FROM terre.infrastructure WHERE surveille ORDER BY id"
     ).fetchall():
-        freq = conn.execute(
-            "SELECT id, valeur FROM terre.observation WHERE infrastructure_id = %s"
-            " AND variable = 'frequence_eau_historique' ORDER BY observe_le DESC LIMIT 1",
-            (infra_id,),
-        ).fetchone()
+        freq, reference = frequence_reference(conn, infra_id, jour, debut)
         eau = conn.execute(
             "SELECT id, observe_le, valeur FROM terre.observation WHERE infrastructure_id = %s"
             " AND variable = 'eau_observee' AND observe_le BETWEEN %s AND %s",
@@ -175,10 +205,11 @@ def rassembler(conn: psycopg.Connection, jour: date) -> list[Faits]:
         faits.append(Faits(
             infrastructure_id=infra_id, nom=nom,
             frequence_historique=freq[1] if freq else None,
+            reference=reference,
             eau=[(d, int(v)) for _, d, v in eau],
             gdacs=[(v, km) for _, v, km in gdacs if v is not None],
             debits=[(h, v) for _, h, v in debits],
-            observations=sorted(([freq[0]] if freq else []) + [r[0] for r in eau]
+            observations=sorted(([freq[0]] if freq and freq[0] else []) + [r[0] for r in eau]
                                 + [r[0] for r in gdacs] + [r[0] for r in debits] + [r[0] for r in radar]),
             radar=[(d, v) for _, d, v in radar],
             reference_vv=ref if n_ref >= REFERENCE_MIN else None,

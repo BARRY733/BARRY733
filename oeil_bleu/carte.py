@@ -70,7 +70,8 @@ def classer(frequence: np.ndarray, wofs: np.ndarray) -> tuple[np.ndarray, np.nda
     return avant, apres
 
 
-def dessiner(avant: np.ndarray, apres: np.ndarray, titre: str, date_apres: datetime, rayon_m: float) -> bytes:
+def dessiner(avant: np.ndarray, apres: np.ndarray, titre: str, date_apres: datetime, rayon_m: float,
+             source: str = "Digital Earth Africa (WOfS, Landsat)") -> bytes:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -107,7 +108,7 @@ def dessiner(avant: np.ndarray, apres: np.ndarray, titre: str, date_apres: datet
         Line2D([], [], linestyle="none", marker="o", markersize=8, markerfacecolor="white",
                markeredgecolor=ENCRE, markeredgewidth=2, label="Point surveillé"),
     ], loc="lower center", ncol=4, frameon=False, fontsize=8, labelcolor=ENCRE_SECONDAIRE)
-    fig.text(0.98, 0.965, "Source : Digital Earth Africa (WOfS, Landsat)", ha="right", va="center",
+    fig.text(0.98, 0.965, f"Source : {source}", ha="right", va="center",
              fontsize=7, color=ENCRE_SECONDAIRE)
     fig.tight_layout(rect=(0, 0.07, 1, 0.91))
     sortie = io.BytesIO()
@@ -116,27 +117,44 @@ def dessiner(avant: np.ndarray, apres: np.ndarray, titre: str, date_apres: datet
     return sortie.getvalue()
 
 
+def en_codes_wofs(scl: np.ndarray) -> np.ndarray:
+    """Classification Sentinel-2 (SCL) ramenée aux codes WOfS : eau 128, sec 0, masqué sinon."""
+    codes = np.full(scl.shape, 2, dtype="uint8")
+    codes[scl == 6] = EAU
+    codes[np.isin(scl, (4, 5, 11))] = SEC
+    return codes
+
+
 def carte_publication(conn, publication_id: int, lecteur=lire_sur_grille) -> bytes | None:
-    """Carte d'une publication, ou None si les images satellites manquent."""
+    """Carte d'une publication, ou None si les images satellites manquent.
+    Avant : Global Surface Water (monde) ou fréquence WOfS (Afrique).
+    Après : dernier passage avec eau, Sentinel-2 (monde) ou Landsat WOfS (Afrique)."""
     ligne = conn.execute(
-        "SELECT i.nom, ST_X(ST_PointOnSurface(i.geom)), ST_Y(ST_PointOnSurface(i.geom)), a.elements"
+        "SELECT i.id, i.nom, ST_X(ST_PointOnSurface(i.geom)), ST_Y(ST_PointOnSurface(i.geom)), a.elements"
         " FROM terre.publication p JOIN terre.anomalie a ON a.evenement_id = p.evenement_id"
         " JOIN terre.infrastructure i ON i.id = a.infrastructure_id WHERE p.id = %s",
         (publication_id,),
     ).fetchone()
     if ligne is None:
         return None
-    nom, lon, lat, elements = ligne
-    ids = elements.get("observations", [])
+    infra_id, nom, lon, lat, elements = ligne
     freq = conn.execute(
-        "SELECT brut->>'href' FROM terre.observation WHERE id = ANY(%s)"
-        " AND variable = 'frequence_eau_historique' AND brut ? 'href' LIMIT 1", (ids,)).fetchone()
+        "SELECT brut->>'href', brut->>'produit' = 'gsw_occurrence' FROM terre.observation"
+        " WHERE infrastructure_id = %s AND variable = 'frequence_eau_historique' AND brut ? 'href'"
+        " ORDER BY (brut->>'produit' = 'gsw_occurrence') DESC NULLS LAST, observe_le DESC LIMIT 1",
+        (infra_id,)).fetchone()
     scene = conn.execute(
-        "SELECT brut->>'href', observe_le FROM terre.observation WHERE id = ANY(%s)"
-        " AND variable = 'eau_observee' AND valeur = 1 AND brut ? 'href'"
-        " ORDER BY observe_le DESC LIMIT 1", (ids,)).fetchone()
+        "SELECT brut->>'href', observe_le, brut->>'capteur' = 'sentinel-2' FROM terre.observation"
+        " WHERE id = ANY(%s) AND variable = 'eau_observee' AND valeur = 1 AND brut ? 'href'"
+        " ORDER BY observe_le DESC LIMIT 1", (elements.get("observations", []),)).fetchone()
     if not freq or not scene:
         return None
     grille = grille_locale(lon, lat)
-    avant, apres = classer(lecteur(freq[0], grille, np.nan), lecteur(scene[0], grille, 255))
-    return dessiner(avant, apres, nom, scene[1], grille.rayon_m)
+    frequence = lecteur(freq[0], grille, np.nan).astype("float64")
+    if freq[1]:
+        frequence = np.where(frequence <= 100, frequence / 100, np.nan)    # GSW : pourcentage
+    brut = lecteur(scene[0], grille, 0 if scene[2] else 255)
+    apres = en_codes_wofs(brut) if scene[2] else brut
+    avant, apres = classer(frequence, apres)
+    source = "Sentinel-2 (ESA Copernicus)" if scene[2] else "Digital Earth Africa (WOfS, Landsat)"
+    return dessiner(avant, apres, nom, scene[1], grille.rayon_m, source)
