@@ -108,7 +108,30 @@ def creer_app(url_base: str | None = None, mot_de_passe: str | None = None, dire
     def observatoire():
         from ..observatoire import instantane, page_autonome
 
-        return Response(page_autonome(instantane(conn())), mimetype="text/html")
+        return Response(page_autonome(instantane(conn()), en_ligne=True, jeton=session["jeton"]),
+                        mimetype="text/html")
+
+    @app.post("/observatoire/import")
+    @protege
+    def observatoire_import():
+        from .. import points
+
+        texte = request.form.get("csv", "")
+        if len(texte) > 1_000_000:
+            return {"message": "Fichier trop volumineux (1 Mo au plus)."}, 413
+        try:
+            n = points.importer(conn(), points.lire_texte(texte))
+        except ValueError as e:
+            return {"message": f"Rien n'a été importé.\n{e}"}, 400
+        return {"message": f"{n} site{'s' if n > 1 else ''} importé{'s' if n > 1 else ''} ou mis à jour."}
+
+    @app.get("/observatoire/sites.csv")
+    @protege
+    def observatoire_csv():
+        from ..observatoire import csv_sites, instantane
+
+        return Response(csv_sites(instantane(conn())), mimetype="text/csv",
+                        headers={"Content-Disposition": f'attachment; filename="oeil-bleu-sites-{date.today()}.csv"'})
 
     @app.get("/carte/<int:pid>.png")
     @protege

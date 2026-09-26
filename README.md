@@ -143,12 +143,21 @@ docker compose --profile web up -d
 
 Caddy obtient et renouvelle seul le certificat HTTPS ; l'application tourne derrière lui avec gunicorn. En production, le cookie de session n'est envoyé qu'en HTTPS et une clé de session fixe (`OEIL_BLEU_SECRET`) est exigée.
 
-### Observatoire
+### Atelier (observatoire)
 
-L'état de chaque site surveillé, tiré de la base et de rien d'autre : carte, fiche du site (verdict, mesures, ce que le système sait et ne sait pas), eau année par année, radar et optique sur 14 mois, état et licence de chaque source.
+Un poste d'analyse sombre, tiré de la base et de rien d'autre. Six vues :
 
-- Dans l'application : `/observatoire` (même mot de passe que la page de validation).
-- En page autonome, données incluses, à ouvrir sans serveur : `python -m oeil_bleu observatoire --export observatoire.html [--jour AAAA-MM-JJ]`.
+| Vue | Contenu |
+|---|---|
+| Observatoire | Indicateurs, carte (déplacement, zoom, Région / Afrique, fleuves, lacs, pays), fiche du site sélectionné, points d'attention, activité récente |
+| Sites & objets | Tableau triable et filtrable ; chaque site ouvre une fiche à onglets : aperçu, séries (eau année par année, radar et optique sur 14 mois), sources, anomalies et publications |
+| Relations | Ce qui relie un site à ses zones, à ses sources, à ses anomalies, publications et décisions |
+| Scénarios | Simuler d'autres seuils sur les données réelles ; rien n'est modifié dans le système |
+| Sources & qualité | État, dernière collecte, volume, licence de chaque source |
+| Journal | Collectes, sites, anomalies, agents, décisions et bulletins, filtrables |
+
+- Dans l'application : `/observatoire` (même mot de passe que la page de validation). L'import de sites (CSV collé ou envoyé, même format que `importer-points`, refusé en bloc à la moindre ligne invalide) et l'export (`/observatoire/sites.csv`, réimportable) y sont actifs.
+- En page autonome, données incluses, à ouvrir sans serveur : `python -m oeil_bleu observatoire --export observatoire.html [--jour AAAA-MM-JJ]`. Elle est en lecture seule ; l'export copie le tableau des sites.
 
 Un site dont l'eau est presque toujours présente (plus de 50 % du temps) est signalé « point à déplacer » : aucune crue n'y serait détectable.
 

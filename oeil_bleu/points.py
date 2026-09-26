@@ -1,6 +1,7 @@
 """Import des points surveillés depuis un CSV fourni par le directeur."""
 
 import csv
+import io
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,19 +23,25 @@ class Point:
 
 def lire(chemin: Path) -> list[Point]:
     """Lit et valide le CSV ; lève ValueError avec toutes les erreurs trouvées."""
+    return lire_texte(Path(chemin).read_text(encoding="utf-8-sig"))
+
+
+def lire_texte(texte: str) -> list[Point]:
+    """Même validation, sur le contenu d'un CSV (collé ou envoyé depuis l'atelier)."""
     points, erreurs = [], []
-    with open(chemin, newline="", encoding="utf-8") as f:
-        lecteur = csv.DictReader(f)
-        manquantes = {"nom", "type", "latitude", "longitude"} - set(lecteur.fieldnames or [])
-        if manquantes:
-            raise ValueError(f"colonnes manquantes : {', '.join(sorted(manquantes))}")
-        for n, ligne in enumerate(lecteur, start=2):
-            try:
-                points.append(_valider(ligne))
-            except ValueError as e:
-                erreurs.append(f"ligne {n} : {e}")
+    lecteur = csv.DictReader(io.StringIO(texte.lstrip("\ufeff")))
+    manquantes = {"nom", "type", "latitude", "longitude"} - set(lecteur.fieldnames or [])
+    if manquantes:
+        raise ValueError(f"colonnes manquantes : {', '.join(sorted(manquantes))}")
+    for n, ligne in enumerate(lecteur, start=2):
+        try:
+            points.append(_valider(ligne))
+        except ValueError as e:
+            erreurs.append(f"ligne {n} : {e}")
     if erreurs:
         raise ValueError("\n".join(erreurs))
+    if not points:
+        raise ValueError("aucune ligne à importer")
     return points
 
 

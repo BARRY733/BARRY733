@@ -48,6 +48,21 @@ def test_route_protegee(conn, monkeypatch):
 
     app = creer_app(URL, "mdp", "A. Directeur")
     client = app.test_client()
+    auth = {"Authorization": "Basic " + base64.b64encode(b"d:mdp").decode()}
     assert client.get("/observatoire").status_code == 401
-    r = client.get("/observatoire", headers={"Authorization": "Basic " + base64.b64encode(b"d:mdp").decode()})
-    assert r.status_code == 200 and "État des sites surveillés" in r.get_data(as_text=True)
+    r = client.get("/observatoire", headers=auth)
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "Atelier d'analyse" in page and "EN_LIGNE=true" in page
+    jeton = page.split('name="jeton" content="')[1].split('"')[0]
+
+    csv = "nom,type,latitude,longitude\nPont de test,pont,13.2,-5.9\n"
+    assert client.post("/observatoire/import", data={"csv": csv}, headers=auth).status_code == 400   # sans jeton
+    r = client.post("/observatoire/import", data={"csv": csv, "jeton": jeton}, headers=auth)
+    assert r.status_code == 200 and "1 site importé" in r.get_json()["message"]
+    r = client.post("/observatoire/import", data={"csv": csv + "Faux,avion,1,1\n", "jeton": jeton}, headers=auth)
+    assert r.status_code == 400 and "ligne 3" in r.get_json()["message"]
+
+    r = client.get("/observatoire/sites.csv", headers=auth)
+    lignes = r.get_data(as_text=True).splitlines()
+    assert r.mimetype == "text/csv" and lignes[0].startswith("nom,type,latitude,longitude")
+    assert any(l.startswith("Pont de test,pont,13.20000,-5.90000") for l in lignes)
