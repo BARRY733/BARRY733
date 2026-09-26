@@ -76,6 +76,24 @@ GloFAS n'est pas encore branché : il exige un compte Copernicus (EWDS) et une c
 Les formats des API sont tirés de leur documentation publique ; les tests portent sur des réponses types. Ils restent à confirmer au premier appel réel, depuis un environnement dont le réseau autorise ces domaines :
 `www.gdacs.org`, `earthquake.usgs.gov`, `firms.modaps.eosdis.nasa.gov`, `explorer.digitalearth.africa`, `deafrica-services.s3.af-south-1.amazonaws.com`.
 
+## Étape 3 : Détection
+
+```bash
+python -m detection               # anomalies du jour
+python -m detection 2024-09-15    # un jour donné
+python -m detection --json        # pour les agents
+```
+
+Pour chaque point surveillé, les scènes récentes (16 jours, scènes claires uniquement) sont comparées à la fréquence historique d'eau du pixel.
+
+- **Anomalie** : de l'eau observée là où la fréquence historique est inférieure à 10 %.
+- **Confiance** : `a_confirmer` pour une scène en eau ; `moyen` pour deux scènes ou plus ; `eleve` pour deux scènes ou plus sur un point presque jamais en eau (moins de 5 %). Un signal de crue GDACS à moins de 50 km sur la même période relève la confiance d'un cran.
+- **Épisodes** : les scènes suivantes enrichissent le même événement ; deux scènes sèches consécutives le closent. Une période nuageuse ne fait pas baisser la confiance acquise.
+- **Sorties** : un événement `crue` au statut `detecte`, l'impact `menace` sur le point, les mesures et preuves rattachées.
+- **Limite volontaire** : ni gravité ni coupure d'accès ; c'est le travail de l'Agent Analyste (étape 4).
+
+Les seuils (`detection/__init__.py`) sont des valeurs de départ, à calibrer par le test à blanc de l'étape 6.
+
 ## Tests
 
 ```bash
@@ -87,7 +105,6 @@ Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais 
 ## Étapes suivantes
 
 2. Collecte : GloFAS reste à brancher.
-3. Détection : écart à l'étendue historique sur chaque point surveillé.
 4. Agents : Analyste, Contradicteur, Rédacteur, Conformité.
 5. Bulletin : gabarit, carte avant/après, envoi après validation du directeur.
 6. Test à blanc sur les crues 2024 au Sahel.
