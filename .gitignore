@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 data/*.csv
 !data/points_surveilles.modele.csv
+data/brut/

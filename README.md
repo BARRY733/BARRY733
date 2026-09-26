@@ -51,6 +51,31 @@ python scripts/charger_points.py data/points_surveilles.csv
 
 Le chargement est tout ou rien : une seule ligne invalide annule l'import et le script liste les erreurs ligne par ligne. Relancer le même fichier met à jour les points sans créer de doublon. Les fichiers CSV réels ne sont pas versionnés.
 
+## Étape 2 : Collecte
+
+```bash
+python -m collecte              # toutes les sources
+python -m collecte gdacs eaux   # une sélection
+```
+
+| Source | Module | Ce qui entre dans le Modèle Terre |
+|---|---|---|
+| GDACS | `collecte/gdacs.py` | Événements crue, séisme, sécheresse, feu dans l'emprise |
+| USGS | `collecte/usgs.py` | Séismes de magnitude 4,5 et plus |
+| FIRMS (NASA) | `collecte/firms.py` | Foyers de feu VIIRS ; clé `FIRMS_MAP_KEY` requise |
+| Digital Earth Africa | `collecte/eaux.py` | Par point surveillé : fréquence historique d'eau et état eau/sec des scènes récentes |
+
+- **Emprise** : celle des points surveillés, élargie de 0,5°, ou la variable `EMPRISE`.
+- **Preuves** : chaque réponse est archivée telle quelle dans `DONNEES_BRUTES`, avec son empreinte SHA-256, puis rattachée aux événements et aux mesures qu'elle justifie.
+- **Robustesse** : chaque source tourne dans sa propre transaction ; une panne n'écrit rien de partiel et n'arrête pas les autres.
+- **Idempotence** : relancer la collecte ne crée ni doublon d'événement ni doublon de mesure.
+- **À planifier** une fois par jour (cron ou minuterie systemd) sur le serveur.
+
+GloFAS n'est pas encore branché : il exige un compte Copernicus (EWDS) et une clé d'API.
+
+Les formats des API sont tirés de leur documentation publique ; les tests portent sur des réponses types. Ils restent à confirmer au premier appel réel, depuis un environnement dont le réseau autorise ces domaines :
+`www.gdacs.org`, `earthquake.usgs.gov`, `firms.modaps.eosdis.nasa.gov`, `explorer.digitalearth.africa`, `deafrica-services.s3.af-south-1.amazonaws.com`.
+
 ## Tests
 
 ```bash
@@ -61,7 +86,7 @@ Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais 
 
 ## Étapes suivantes
 
-2. Collecte : FIRMS, GloFAS, GDACS, surfaces en eau Digital Earth Africa sur la zone pilote.
+2. Collecte : GloFAS reste à brancher.
 3. Détection : écart à l'étendue historique sur chaque point surveillé.
 4. Agents : Analyste, Contradicteur, Rédacteur, Conformité.
 5. Bulletin : gabarit, carte avant/après, envoi après validation du directeur.

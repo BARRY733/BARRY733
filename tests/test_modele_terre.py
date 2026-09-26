@@ -1,10 +1,5 @@
-"""Vérifie que les règles éditoriales sont tenues par la base elle-même.
+"""Vérifie que les règles éditoriales sont tenues par la base elle-même."""
 
-Nécessite DATABASE_URL vers une base PostGIS vide où l'utilisateur peut
-créer un schéma. Chaque test tourne dans une transaction annulée.
-"""
-
-import os
 import pathlib
 import sys
 
@@ -14,27 +9,6 @@ import pytest
 RACINE = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE / "scripts"))
 import charger_points  # noqa: E402
-
-pytestmark = pytest.mark.skipif("DATABASE_URL" not in os.environ, reason="DATABASE_URL absent")
-
-
-@pytest.fixture(scope="session")
-def base():
-    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
-        conn.execute("DROP SCHEMA IF EXISTS terre CASCADE")
-        for fichier in ("schema.sql", "sources.sql"):
-            conn.execute((RACINE / "db" / fichier).read_text())
-        yield conn
-
-
-@pytest.fixture
-def cur(base):
-    base.autocommit = False
-    with base.cursor() as c:
-        c.execute("SET search_path = terre, public")
-        yield c
-    base.rollback()
-    base.autocommit = True
 
 
 def nouvelle_publication(cur, niveau=1, avec_preuve=True):

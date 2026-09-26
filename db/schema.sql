@@ -72,8 +72,11 @@ CREATE TABLE evenement (
   fin        timestamptz,
   gravite    smallint CHECK (gravite BETWEEN 1 AND 5),
   confiance  niveau_confiance NOT NULL DEFAULT 'a_confirmer',
+  source_id  int REFERENCES source(id),   -- détecteur d'origine
+  ref_externe text,                       -- identifiant chez la source
   cree_le    timestamptz NOT NULL DEFAULT now(),
-  CHECK (fin IS NULL OR fin >= debut)
+  CHECK (fin IS NULL OR fin >= debut),
+  UNIQUE (source_id, ref_externe)
 );
 CREATE INDEX ON evenement USING gist (geom);
 CREATE INDEX ON evenement (type, debut);
@@ -90,7 +93,6 @@ CREATE TABLE impact (
 CREATE TABLE preuve (
   id               bigserial PRIMARY KEY,
   source_id        int NOT NULL REFERENCES source(id),
-  evenement_id     bigint REFERENCES evenement(id),
   uri              text NOT NULL,           -- image ou donnée brute
   acquise_le       timestamptz NOT NULL,    -- date de prise de vue / mesure
   traitement       text NOT NULL,           -- chaîne de traitement appliquée
@@ -98,15 +100,24 @@ CREATE TABLE preuve (
   cree_le          timestamptz NOT NULL DEFAULT now()
 );
 
+-- Un même fichier brut (une réponse d'API) peut prouver plusieurs événements.
+CREATE TABLE evenement_preuve (
+  evenement_id bigint REFERENCES evenement(id) ON DELETE CASCADE,
+  preuve_id    bigint REFERENCES preuve(id),
+  PRIMARY KEY (evenement_id, preuve_id)
+);
+
 CREATE TABLE indicateur (
   id           bigserial PRIMARY KEY,
   evenement_id bigint REFERENCES evenement(id) ON DELETE CASCADE,
+  infrastructure_id int REFERENCES infrastructure(id),  -- mesure sur un point surveillé
   preuve_id    bigint NOT NULL REFERENCES preuve(id),
   nom          text NOT NULL,     -- surface_inondee, pluie_cumulee...
   valeur       double precision NOT NULL,
   unite        text NOT NULL,
   mesure_le    timestamptz NOT NULL
 );
+CREATE UNIQUE INDEX ON indicateur (infrastructure_id, nom, mesure_le);
 
 CREATE TABLE population_exposee (
   id           bigserial PRIMARY KEY,
