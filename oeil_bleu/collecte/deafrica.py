@@ -93,7 +93,7 @@ def observations_wofs(items: list[dict], points, lecteur=lire_pixel) -> list[Obs
                 cle=f"wofs_ls:{item['id']}:{infra_id}",
                 variable="eau_observee", valeur=etat, unite="1 eau, 0 sec",
                 observe_le=quand, longitude=lon, latitude=lat,
-                infrastructure_id=infra_id, brut={"element": item["id"], "point": nom},
+                infrastructure_id=infra_id, brut={"element": item["id"], "point": nom, "href": href},
             ))
     return resultat
 
@@ -104,7 +104,8 @@ def observations_frequence(items: list[dict], points, lecteur=lire_pixel) -> lis
         item = next((i for i in items if _dans(i, lon, lat)), None)
         if item is None:
             continue
-        freq = lecteur(_actif(item, "frequency"), lon, lat)
+        href = _actif(item, "frequency")
+        freq = lecteur(href, lon, lat)
         if freq is None:
             continue
         resultat.append(Observation(
@@ -113,7 +114,7 @@ def observations_frequence(items: list[dict], points, lecteur=lire_pixel) -> lis
             observe_le=datetime.fromisoformat(item["properties"]["datetime"].replace("Z", "+00:00"))
             if item["properties"].get("datetime") else datetime(1984, 1, 1, tzinfo=timezone.utc),
             longitude=lon, latitude=lat, infrastructure_id=infra_id,
-            brut={"element": item["id"], "point": nom},
+            brut={"element": item["id"], "point": nom, "href": href},
         ))
     return resultat
 

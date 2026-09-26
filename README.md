@@ -10,7 +10,7 @@ Veille satellitaire des crues sur les bassins du Sénégal et du Niger. Le proto
 | 2. Collecte | FIRMS, GloFAS, GDACS, Digital Earth Africa | Fait, à tester sur données réelles |
 | 3. Détection | Anomalies quotidiennes avec niveau de confiance | Fait, seuils à régler au test à blanc |
 | 4. Agents | Analyste, Contradicteur, Rédacteur, Conformité | Fait, à essayer avec une clé API |
-| 5. Bulletin | Gabarit, carte avant/après, envoi après validation | À venir |
+| 5. Bulletin | Gabarit, carte avant/après, envoi après validation | Fait, à essayer avec un compte SMTP |
 | 6. Test à blanc | Taux de fausses alertes sur les crues passées | À venir |
 
 ## Démarrer
@@ -27,7 +27,7 @@ python -m oeil_bleu importer-points data/points_surveilles.csv
 ## Collecte (étape 2)
 
 ```bash
-pip install -e ".[satellite,glofas,agents]"
+pip install -e ".[satellite,glofas,agents,carte]"
 python -m oeil_bleu migrer                   # ajoute les tables de collecte
 python -m oeil_bleu collecter                # toutes les sources
 python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
@@ -100,6 +100,31 @@ Garde-fous :
 - chaque appel est tracé dans `terre.passage_agent` : dossier reçu, réponse, identifiant de requête, jetons consommés.
 
 Modèle : `claude-opus-5` par défaut, modifiable avec `OEIL_BLEU_MODELE`. Les consignes des agents sont dans `oeil_bleu/agents/consignes.py`.
+
+## Bulletin (étape 5)
+
+Le directeur de publication relit chaque texte avant tout envoi :
+
+```bash
+python -m oeil_bleu a-valider                                   # textes en attente, avec l'avis des agents
+python -m oeil_bleu valider 12 --par "Nom du directeur"
+python -m oeil_bleu rejeter 13 --par "Nom du directeur" --motif "point mal placé"
+```
+
+Puis le bulletin :
+
+```bash
+python -m oeil_bleu bulletin                 # aperçu dans bulletin.html, rien n'est envoyé
+python -m oeil_bleu bulletin --envoyer       # envoi réel aux destinataires
+python -m oeil_bleu bulletin --envoyer --meme-vide   # envoie aussi « rien à signaler »
+```
+
+- Seules les publications validées par un humain entrent dans le bulletin, et chacune ne part qu'une fois.
+- Chaque alerte porte une carte avant/après sur 3 km autour du point : l'étendue d'eau habituelle en bleu, l'eau inhabituelle en orange, les zones sous nuages hachurées. Les couleurs ont été vérifiées pour les daltoniens. Si les images satellites sont inaccessibles, l'alerte part sans carte.
+- Chaque destinataire reçoit son propre message : aucune adresse n'est visible des autres.
+- Si tous les envois échouent, rien n'est marqué comme publié et le bulletin peut être relancé.
+- Envoi par SMTP, compatible avec tout fournisseur (réglages `SMTP_*` dans `.env`).
+- Les destinataires sont dans `data/destinataires.csv` (colonnes `courriel,nom,organisation`, modèle dans `data/destinataires.exemple.csv`). Ce fichier contient des données personnelles : il n'est pas versionné.
 
 ## Modèle Terre
 

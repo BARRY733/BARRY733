@@ -5,7 +5,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import db, detection, points
+from . import bulletin, db, detection, points
 from .collecte import executer
 
 COLLECTEURS = {
@@ -34,6 +34,18 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--confiance-min", type=float, default=0.5)
     v = sous.add_parser("verifier-licence", help="le directeur confirme la licence d'une source")
     v.add_argument("source")
+    sous.add_parser("a-valider", help="publications en attente du directeur")
+    for nom, aide in (("valider", "le directeur approuve une publication"),
+                      ("rejeter", "le directeur retire une publication")):
+        x = sous.add_parser(nom, help=aide)
+        x.add_argument("publication", type=int)
+        x.add_argument("--par", required=True, help="nom du directeur de publication")
+        x.add_argument("--motif")
+    b = sous.add_parser("bulletin", help="compose le bulletin (aperçu par défaut)")
+    b.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
+    b.add_argument("--apercu", type=Path, default=Path("bulletin.html"))
+    b.add_argument("--envoyer", action="store_true", help="envoie réellement aux destinataires")
+    b.add_argument("--meme-vide", action="store_true", help="envoie aussi un bulletin sans alerte")
     args = parser.parse_args(argv)
     if args.commande == "collecter" and (inconnues := set(args.sources) - set(COLLECTEURS)):
         parser.error(f"source(s) inconnue(s) : {', '.join(sorted(inconnues))}")
@@ -44,6 +56,19 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(faits) if faits else "Base déjà à jour.")
         elif args.commande == "detecter":
             afficher_detection(conn, args.jour)
+        elif args.commande == "a-valider":
+            for pid, titre, contenu, confiance, avis in bulletin.a_valider(conn):
+                print(f"=== Publication {pid} · confiance {confiance} ===\n{titre}\n\n{contenu}\n\nAvis : {avis}\n")
+            print("Valider : python -m oeil_bleu valider <n°> --par \"Nom\"")
+        elif args.commande in ("valider", "rejeter"):
+            try:
+                bulletin.decider(conn, args.publication, args.par, args.commande == "valider", args.motif)
+            except ValueError as e:
+                print(e, file=sys.stderr)
+                return 1
+            print(f"Publication {args.publication} {'validée' if args.commande == 'valider' else 'retirée'}.")
+        elif args.commande == "bulletin":
+            return lancer_bulletin(conn, args)
         elif args.commande == "agents":
             return lancer_agents(conn, args.jour, args.confiance_min)
         elif args.commande == "verifier-licence":
@@ -103,6 +128,27 @@ def lancer_agents(conn, jour: date, confiance_min: float) -> int:
         suite = f" → publication {i.publication_id}" if i.publication_id else ""
         print(f"  anomalie {i.anomalie_id} : {i.resultat}{suite}  {i.detail}")
     return 0
+
+
+def lancer_bulletin(conn, args) -> int:
+    import os
+
+    if not args.envoyer:
+        n = bulletin.apercu(conn, args.jour, args.apercu)
+        print(f"Aperçu écrit dans {args.apercu} ({n} alerte(s)). Rien n'a été envoyé.")
+        print("Pour envoyer : python -m oeil_bleu bulletin --envoyer")
+        return 0
+    destinataires = bulletin.lire_destinataires()
+    with bulletin.smtp_depuis_env() as serveur:
+        bid, n, echecs = bulletin.envoyer(conn, args.jour, destinataires, serveur,
+                                          os.environ["SMTP_EXPEDITEUR"], meme_vide=args.meme_vide)
+    if not bid:
+        print("Aucune publication validée : bulletin non envoyé (--meme-vide pour l'envoyer quand même).")
+        return 0
+    print(f"Bulletin {bid} envoyé : {n} alerte(s), {len(destinataires) - len(echecs)} destinataire(s).")
+    for e in echecs:
+        print(f"  échec : {e}", file=sys.stderr)
+    return 1 if echecs else 0
 
 
 if __name__ == "__main__":
