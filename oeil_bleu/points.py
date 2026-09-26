@@ -25,7 +25,7 @@ def lire(chemin: Path) -> list[Point]:
     points, erreurs = [], []
     with open(chemin, newline="", encoding="utf-8") as f:
         lecteur = csv.DictReader(f)
-        manquantes = set(COLONNES[:-1]) - set(lecteur.fieldnames or [])
+        manquantes = {"nom", "type", "latitude", "longitude"} - set(lecteur.fieldnames or [])
         if manquantes:
             raise ValueError(f"colonnes manquantes : {', '.join(sorted(manquantes))}")
         for n, ligne in enumerate(lecteur, start=2):
@@ -51,19 +51,29 @@ def _valider(ligne: dict) -> Point:
         raise ValueError("latitude ou longitude non numérique") from None
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise ValueError("coordonnées hors limites")
-    zone = (ligne.get("zone_code") or "").strip()
-    if not zone:
-        raise ValueError("zone_code vide")
+    zone = (ligne.get("zone_code") or "").strip()   # vide : le pays est trouvé d'après les coordonnées
     notes = (ligne.get("notes") or "").strip() or None
     return Point(nom, type_, lat, lon, zone, notes)
 
 
 def importer(conn: psycopg.Connection, points: list[Point]) -> int:
-    """Insère ou met à jour les points ; vérifie qu'ils tombent dans leur zone."""
+    """Insère ou met à jour les points ; vérifie qu'ils tombent dans leur zone.
+    Sans zone indiquée, le point est rattaché au pays qui le contient."""
     with conn.transaction():
         for p in points:
+            if not p.zone_code:
+                # Côtes au 1:50 m, précises à 1-2 km : un pont sur une lagune peut tomber « en mer ».
+                # On retient le pays qui contient le point, sinon le plus proche à moins de 5 km.
+                pays = conn.execute(
+                    "SELECT code FROM terre.zone, (SELECT ST_SetSRID(ST_MakePoint(%s, %s), 4326) AS pt) p"
+                    " WHERE type = 'pays' AND ST_DWithin(geom::geography, p.pt::geography, 5000)"
+                    " ORDER BY ST_Distance(geom::geography, p.pt::geography), ST_Area(geom) LIMIT 1",
+                    (p.longitude, p.latitude)).fetchone()
+                if pays is None:
+                    raise ValueError(f"{p.nom} : aucun pays à ces coordonnées (en mer ? latitude et longitude inversées ?)")
+                p.zone_code = pays[0]
             ligne = conn.execute(
-                "SELECT id, ST_Contains(geom, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                "SELECT id, ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, 5000)"
                 " FROM terre.zone WHERE code = %s",
                 (p.longitude, p.latitude, p.zone_code),
             ).fetchone()

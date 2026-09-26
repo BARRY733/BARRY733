@@ -9,7 +9,7 @@ from oeil_bleu import db, points
 def test_migration_idempotente(conn):
     assert db.migrer(conn) == []
     assert conn.execute("SELECT count(*) FROM terre.source").fetchone()[0] == 5
-    assert conn.execute("SELECT count(*) FROM terre.zone").fetchone()[0] == 3
+    assert conn.execute("SELECT count(*) FROM terre.zone").fetchone()[0] == 248  # 2 bassins, 5 continents, 241 pays
 
 
 def _evenement_et_publication(conn, niveau):
@@ -112,4 +112,17 @@ def test_point_ailleurs_en_afrique(conn, tmp_path):
     csv.write_text("nom,type,latitude,longitude,zone_code\nPont à Lyon,pont,45.76,4.83,afrique\n",
                    encoding="utf-8")
     with pytest.raises(ValueError, match="hors de l'emprise"):
+        points.importer(conn, points.lire(csv))
+
+
+def test_pays_trouve_automatiquement(conn, tmp_path):
+    csv = tmp_path / "points.csv"
+    csv.write_text("nom,type,latitude,longitude\n"
+                   "Pont de Douna,pont,13.214,-5.903\n"
+                   "Pont Houphouët-Boigny,pont,5.3144,-4.0187\n", encoding="utf-8")
+    assert points.importer(conn, points.lire(csv)) == 2
+    assert conn.execute("SELECT z.nom FROM terre.infrastructure i JOIN terre.zone z ON z.id = i.zone_id"
+                        " ORDER BY i.id").fetchall() == [("Mali",), ("Côte d'Ivoire",)]
+    csv.write_text("nom,type,latitude,longitude\nEn plein océan,pont,0,-20\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="aucun pays"):
         points.importer(conn, points.lire(csv))
