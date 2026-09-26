@@ -9,7 +9,7 @@ from oeil_bleu import db, points
 def test_migration_idempotente(conn):
     assert db.migrer(conn) == []
     assert conn.execute("SELECT count(*) FROM terre.source").fetchone()[0] == 5
-    assert conn.execute("SELECT count(*) FROM terre.zone").fetchone()[0] == 2
+    assert conn.execute("SELECT count(*) FROM terre.zone").fetchone()[0] == 3
 
 
 def _evenement_et_publication(conn, niveau):
@@ -102,3 +102,14 @@ def test_chaine_quotidienne_sans_envoi(conn, monkeypatch, capsys):
     sortie = capsys.readouterr().out
     assert "agents non lancés" in sortie and "0 texte(s) attendent votre validation" in sortie
     assert conn.execute("SELECT count(*) FROM terre.bulletin").fetchone()[0] == 0
+
+
+def test_point_ailleurs_en_afrique(conn, tmp_path):
+    csv = tmp_path / "points.csv"
+    csv.write_text("nom,type,latitude,longitude,zone_code\n"
+                   "Pont à Kinshasa,pont,-4.32,15.31,afrique\n", encoding="utf-8")
+    assert points.importer(conn, points.lire(csv)) == 1
+    csv.write_text("nom,type,latitude,longitude,zone_code\nPont à Lyon,pont,45.76,4.83,afrique\n",
+                   encoding="utf-8")
+    with pytest.raises(ValueError, match="hors de l'emprise"):
+        points.importer(conn, points.lire(csv))

@@ -1,6 +1,12 @@
 # Œil Bleu
 
-Veille satellitaire des crues sur les bassins du Sénégal et du Niger. Le prototype a un seul but : produire un bulletin réel sur la zone pilote, validé par le directeur de publication.
+Média de veille satellitaire : le monde entier, l'Afrique en priorité. Le prototype a un seul but : produire un bulletin réel sur la zone pilote (bassins du Sénégal et du Niger), validé par le directeur de publication.
+
+| Niveau | Couverture | Dans le code |
+| --- | --- | --- |
+| Veille | Planète entière | GDACS : tous types d'événements, sans limite géographique |
+| Couverture éditoriale | Afrique entière | Points surveillés acceptés partout en Afrique (zone `afrique`) ; optique et radar Digital Earth Africa disponibles sur tout le continent |
+| Couverture approfondie | Zones pilotes | Bassins du Sénégal et du Niger ; FIRMS et test à blanc |
 
 ## Avancement
 
@@ -35,7 +41,7 @@ python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
 
 | Source | Ce qui est collecté | Où | Clé |
 | --- | --- | --- | --- |
-| `gdacs` | Alertes d'inondation (vert, orange, rouge) | Emprise des deux bassins | Aucune |
+| `gdacs` | Alertes de catastrophes (inondation, séisme, cyclone, volcan, sécheresse, feu ; vert, orange, rouge) | Planète entière | Aucune |
 | `firms` | Foyers de feu VIIRS et leur puissance | Emprise des deux bassins | `FIRMS_MAP_KEY` |
 | `deafrica` | Eau observée par Landsat, et fréquence historique de l'eau | Chaque point surveillé | Aucune |
 | `glofas` | Débit prévu à 1 à 10 jours | Chaque point surveillé | `CDSAPI_KEY` |
@@ -201,14 +207,16 @@ Le directeur fournit `data/points_surveilles.csv`, une vingtaine de lignes au d�
 | `nom` | Nom du lieu |
 | `type` | `route`, `pont`, `village`, `centre_sante`, `piste` ou `barrage` |
 | `latitude`, `longitude` | Degrés décimaux WGS 84 |
-| `zone_code` | `bassin_senegal` ou `bassin_niger` |
+| `zone_code` | `bassin_senegal`, `bassin_niger`, ou `afrique` pour un point ailleurs sur le continent |
 | `notes` | Facultatif |
 
 L'import refuse le fichier entier si une ligne est invalide ou hors de sa zone. Il peut être relancé sans créer de doublons.
 
 ## Limites connues
 
-- Les emprises des bassins sont des rectangles approximatifs, à remplacer par les contours HydroBASINS avant l'étape 3.
+- Les emprises des bassins et de l'Afrique sont des rectangles approximatifs, à remplacer par les contours HydroBASINS et Natural Earth. Celui de l'Afrique déborde sur la péninsule Arabique et le sud de l'Europe.
+- Hors d'Afrique, un point ne peut pas encore être surveillé finement : Digital Earth Africa ne couvre que le continent. Il faudra des sources mondiales équivalentes (Sentinel-1 et Landsat via Copernicus ou la NASA).
+- Un point sur une étendue d'eau permanente (fleuve, lac, lagune) ne déclenche jamais d'alerte : l'eau y est habituelle. Surveiller plutôt ce que la crue coupe (route, quartier, gué).
 - Les licences des sources sont marquées « à vérifier » en attendant l'Agent Conformité.
 - Les collecteurs n'ont été testés que sur des données d'exemple : l'environnement de développement n'a pas accès aux serveurs des sources. Premier passage réel à surveiller.
 - Digital Earth Africa est lu sur un seul pixel de 30 m par point. GloFAS retient, parmi la maille la plus proche et ses 8 voisines, celle au plus fort débit : c'est en général le fleuve, à vérifier point par point.

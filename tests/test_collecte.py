@@ -7,8 +7,6 @@ import pytest
 
 from oeil_bleu.collecte import Observation, deafrica, executer, firms, gdacs, glofas
 
-EMPRISE = (-16.6, 4.0, 15.0, 24.0)
-
 FIRMS_CSV = (
     "latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,"
     "confidence,version,bright_ti5,frp,daynight\n"
@@ -26,22 +24,24 @@ def test_firms():
     assert obs[0].cle != obs[1].cle
 
 
-def _gdacs(lon, lat, eventid):
+def _gdacs(lon, lat, eventid, eventtype="FL"):
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [lon, lat]},
-        "properties": {"eventtype": "FL", "eventid": eventid, "episodeid": 1, "name": "Crue",
+        "properties": {"eventtype": eventtype, "eventid": eventid, "episodeid": 1, "name": "Crue",
                        "alertlevel": "Orange", "country": "Mali", "iso3": "MLI",
                        "fromdate": "2024-09-01T00:00:00", "todate": "2024-09-15T00:00:00"},
     }
 
 
-def test_gdacs_filtre_l_emprise():
-    texte = json.dumps({"features": [_gdacs(-4.0, 14.0, 1), _gdacs(100.0, 14.0, 2)]})
-    obs = gdacs.lire_geojson(texte, EMPRISE)
-    assert [o.cle for o in obs] == ["FL:1:1"]
-    assert obs[0].valeur == 2
-    assert obs[0].observe_le.tzinfo is not None
+def test_gdacs_veille_mondiale_tous_types():
+    texte = json.dumps({"features": [_gdacs(-4.0, 14.0, 1), _gdacs(139.7, 35.7, 2, "EQ"),
+                                     _gdacs(-80.0, 25.0, 3, "TC"), _gdacs(0, 0, 4, "XX")]})
+    obs = gdacs.lire_geojson(texte)
+    assert [(o.cle, o.variable) for o in obs] == [
+        ("FL:1:1", "alerte_inondation"), ("EQ:2:1", "alerte_seisme"), ("TC:3:1", "alerte_cyclone")]
+    assert obs[0].valeur == 2 and obs[0].observe_le.tzinfo is not None
+    assert "eventlist=FL;EQ;TC;VO;DR;WF" in gdacs.URL
 
 
 def test_wofs_classement():
