@@ -6,3 +6,4 @@ __pycache__/
 data/*.csv
 !data/points_surveilles.modele.csv
 data/brut/
+apercu_bulletin.html

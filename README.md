@@ -116,6 +116,25 @@ python -m agents 12       # un événement précis
 - **Rien n'est publié** : un texte conforme est `soumis`, niveau 2, en attente du directeur ; un texte non conforme reste `brouillon` avec ses manquements.
 - **Modèle** : `claude-opus-5`, sorties structurées, réflexion adaptative. Le repli automatique vers un autre modèle en cas de refus est activé (`fallbacks`).
 
+## Étape 5 : Bulletin
+
+Le circuit du directeur de publication :
+
+```bash
+python -m bulletin a-valider          # textes soumis par l'Agent Conformité
+python -m bulletin lire 12            # texte complet et preuves
+python -m bulletin valider 12
+python -m bulletin rejeter 13 "Titre trop affirmatif"
+python -m bulletin apercu             # écrit apercu_bulletin.html
+python -m bulletin envoyer            # diffusion par courriel
+```
+
+- **Gabarit** : courriel HTML compatible avec les messageries courantes, avec une version texte. Chaque article affiche sa confiance, ses sources et la mention IA. Le texte des agents est échappé.
+- **Carte avant / après** : à gauche l'étendue habituelle de l'eau (fréquence historique), à droite la scène qui a déclenché la détection, sur 6 km autour du point. Jointe au courriel, pas hébergée ailleurs.
+- **Envoi tout ou rien** : seuls les textes validés par le directeur partent. Ils ne passent au statut `publie` que si le courriel est accepté par le serveur ; sinon rien n'est marqué diffusé.
+- **Confidentialité** : les destinataires sont en copie cachée.
+- **Traçabilité** : la table `bulletin` garde chaque envoi et ses publications.
+
 ## Tests
 
 ```bash
@@ -127,5 +146,4 @@ Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais 
 ## Étapes suivantes
 
 2. Collecte : GloFAS reste à brancher.
-5. Bulletin : gabarit, carte avant/après, envoi après validation du directeur.
 6. Test à blanc sur les crues 2024 au Sahel.

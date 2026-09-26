@@ -120,9 +120,9 @@ def traiter(cur, client, evenement_id: int) -> Resultat:
 
     # Le texte est conservé dans tous les cas : soumis s'il est conforme, brouillon sinon.
     cur.execute(
-        "INSERT INTO terre.publication (type, niveau, langue, titre, contenu, confiance, statut) "
-        "VALUES ('alerte', 2, 'fr', %s, %s, %s, %s) RETURNING id",
-        (res.texte.titre, res.texte.contenu, plafond, "soumis" if conforme else "brouillon"),
+        "INSERT INTO terre.publication (type, niveau, evenement_id, langue, titre, contenu, confiance, statut) "
+        "VALUES ('alerte', 2, %s, 'fr', %s, %s, %s, %s) RETURNING id",
+        (evenement_id, res.texte.titre, res.texte.contenu, plafond, "soumis" if conforme else "brouillon"),
     )
     res.publication_id = cur.fetchone()[0]
     connues = {p["id"] for p in dossier["preuves"]}

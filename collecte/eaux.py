@@ -47,11 +47,12 @@ def _chercher(collection: str, lon: float, lat: float, debut=None, fin=None) -> 
     return commun.telecharger(STAC, donnees=requete)
 
 
-def _enregistrer(cur, point_id: int, nom: str, valeur: float, unite: str, quand: datetime, preuve: int) -> bool:
+def _enregistrer(cur, point_id: int, nom: str, valeur: float, unite: str, quand: datetime, preuve: int,
+                 ressource: str) -> bool:
     cur.execute(
-        "INSERT INTO terre.indicateur (infrastructure_id, preuve_id, nom, valeur, unite, mesure_le) "
-        "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
-        (point_id, preuve, nom, valeur, unite, quand),
+        "INSERT INTO terre.indicateur (infrastructure_id, preuve_id, nom, valeur, unite, mesure_le, ressource) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+        (point_id, preuve, nom, valeur, unite, quand, ressource),
     )
     return cur.rowcount == 1
 
@@ -77,10 +78,11 @@ def collecter(cur, jours: int = 16, aujourd_hui: date | None = None) -> int:
                 item = items[0]
                 preuve = commun.archiver(cur, "deafrica", brut, "json", STAC,
                                          f"Pixel WOfS summary alltime (frequency) sous « {nom} »")
-                v = echantillonner(_href(item["assets"]["frequency"]), lon, lat)
+                href = _href(item["assets"]["frequency"])
+                v = echantillonner(href, lon, lat)
                 if v is not None:
                     compte += _enregistrer(cur, point_id, "frequence_eau_historique", v, "ratio",
-                                           _date_item(item), preuve)
+                                           _date_item(item), preuve, href)
 
         # Observations récentes.
         brut = _chercher("wofs_ls", lon, lat, fin - timedelta(days=jours), fin)
@@ -90,8 +92,9 @@ def collecter(cur, jours: int = 16, aujourd_hui: date | None = None) -> int:
         preuve = commun.archiver(cur, "deafrica", brut, "json", STAC,
                                  f"Pixel WOfS (wofs) sous « {nom} », {EAU}=eau, {SEC}=sec, autres valeurs ignorées")
         for item in items:
-            v = echantillonner(_href(item["assets"]["wofs"]), lon, lat)
+            href = _href(item["assets"]["wofs"])
+            v = echantillonner(href, lon, lat)
             if v in (EAU, SEC):
                 compte += _enregistrer(cur, point_id, "eau_observee", 1.0 if v == EAU else 0.0, "booleen",
-                                       _date_item(item), preuve)
+                                       _date_item(item), preuve, href)
     return compte

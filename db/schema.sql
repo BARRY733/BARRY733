@@ -115,7 +115,8 @@ CREATE TABLE indicateur (
   nom          text NOT NULL,     -- surface_inondee, pluie_cumulee...
   valeur       double precision NOT NULL,
   unite        text NOT NULL,
-  mesure_le    timestamptz NOT NULL
+  mesure_le    timestamptz NOT NULL,
+  ressource    text               -- couche raster échantillonnée, relue pour les cartes
 );
 CREATE UNIQUE INDEX ON indicateur (infrastructure_id, nom, mesure_le);
 
@@ -134,6 +135,7 @@ CREATE TABLE publication (
   id             bigserial PRIMARY KEY,
   type           type_publication NOT NULL,
   niveau         smallint NOT NULL CHECK (niveau IN (1, 2)),
+  evenement_id   bigint REFERENCES evenement(id),  -- événement raconté, s'il y en a un
   langue         text NOT NULL,          -- code BCP 47 : fr, en, bm, ff, wo...
   titre          text NOT NULL,
   contenu        text NOT NULL,
@@ -162,6 +164,20 @@ CREATE TABLE validation (
   confiance      niveau_confiance,
   commentaire    text,
   cree_le        timestamptz NOT NULL DEFAULT now()
+);
+
+-- Bulletins envoyés : quelles publications, à combien de destinataires, quand.
+CREATE TABLE bulletin (
+  id            bigserial PRIMARY KEY,
+  sujet         text NOT NULL,
+  destinataires integer NOT NULL,
+  envoye_le     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE bulletin_publication (
+  bulletin_id    bigint REFERENCES bulletin(id),
+  publication_id bigint REFERENCES publication(id),
+  PRIMARY KEY (bulletin_id, publication_id)
 );
 
 -- Règles éditoriales ---------------------------------------------------------
