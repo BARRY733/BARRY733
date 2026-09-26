@@ -2,8 +2,8 @@
 
 Passe par l'API EWDS (clé gratuite, fichier ~/.cdsapirc ou variables CDSAPI_URL et
 CDSAPI_KEY). Nécessite l'extra « glofas » (cdsapi, xarray, netCDF4).
-Limite : la maille GloFAS fait environ 5 km ; le point doit être rattaché
-à la maille du cours d'eau, ce que fera l'étape 3.
+La maille GloFAS fait environ 5 km : chaque point est rattaché à la maille
+voisine qui porte le fleuve (voir maille_du_fleuve).
 """
 
 import tempfile
@@ -33,6 +33,24 @@ def requete(jour: date, emprise: list[float]) -> dict:
     }
 
 
+def maille_du_fleuve(da, lat_nom: str, lon_nom: str, lat: float, lon: float, rayon: int = 1):
+    """Parmi la maille la plus proche et ses voisines, garde celle au plus fort débit moyen.
+
+    Un point à 2 km du fleuve tombe souvent sur une maille de berge au débit quasi nul ;
+    la maille voisine qui porte le fleuve est celle dont le débit domine.
+    """
+    import numpy as np
+
+    i = int(np.abs(da[lat_nom].values - lat).argmin())
+    j = int(np.abs(da[lon_nom].values - lon).argmin())
+    fenetre = da.isel({lat_nom: slice(max(i - rayon, 0), i + rayon + 1),
+                       lon_nom: slice(max(j - rayon, 0), j + rayon + 1)})
+    autres = [d for d in fenetre.dims if d not in (lat_nom, lon_nom)]
+    moyenne = (fenetre.mean(dim=autres) if autres else fenetre).transpose(lat_nom, lon_nom)
+    a, b = np.unravel_index(int(np.nanargmax(moyenne.values)), moyenne.shape)
+    return fenetre.isel({lat_nom: a, lon_nom: b}).squeeze()
+
+
 def lire_netcdf(chemin: Path, points, jour: date) -> list[Observation]:
     import xarray as xr
 
@@ -43,7 +61,7 @@ def lire_netcdf(chemin: Path, points, jour: date) -> list[Observation]:
     base = datetime(jour.year, jour.month, jour.day, tzinfo=timezone.utc)
     resultat = []
     for infra_id, nom, lon, lat in points:
-        serie = ds[variable].sel({lat_nom: lat, lon_nom: lon}, method="nearest").squeeze()
+        serie = maille_du_fleuve(ds[variable], lat_nom, lon_nom, lat, lon)
         dim = next((d for d in ("step", "forecast_period") if d in serie.dims), None)
         if dim is None:
             raise RuntimeError(f"dimension d'échéance introuvable : {serie.dims}")

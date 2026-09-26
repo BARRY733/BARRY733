@@ -2,9 +2,10 @@
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
-from . import db, points
+from . import db, detection, points
 from .collecte import executer
 
 COLLECTEURS = {
@@ -26,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
     c = sous.add_parser("collecter", help="récupère les nouvelles données des sources")
     c.add_argument("sources", nargs="*", metavar="source",
                    help=f"parmi {', '.join(COLLECTEURS)} (toutes par défaut)")
+    d = sous.add_parser("detecter", help="liste les anomalies du jour sur les points surveillés")
+    d.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
     args = parser.parse_args(argv)
     if args.commande == "collecter" and (inconnues := set(args.sources) - set(COLLECTEURS)):
         parser.error(f"source(s) inconnue(s) : {', '.join(sorted(inconnues))}")
@@ -34,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.commande == "migrer":
             faits = db.migrer(conn, avec_seeds=not args.sans_seeds)
             print("\n".join(faits) if faits else "Base déjà à jour.")
+        elif args.commande == "detecter":
+            afficher_detection(conn, args.jour)
         elif args.commande == "collecter":
             return collecter(conn, args.sources or list(COLLECTEURS))
         else:
@@ -60,6 +65,19 @@ def collecter(conn, noms: list[str]) -> int:
             echecs += 1
             print(f"{nom} : échec, {type(e).__name__}: {e}", file=sys.stderr)
     return 1 if echecs else 0
+
+
+NIVEAUX = {"eleve": "ÉLEVÉ", "moyen": "moyen", "faible": "faible"}
+
+
+def afficher_detection(conn, jour: date) -> None:
+    _, sans_reference = detection.detecter(conn, jour)
+    lignes = detection.liste_du_jour(conn, jour)
+    print(f"Anomalies du {jour:%d/%m/%Y} : {len(lignes)}")
+    for nom, type_infra, type_anom, confiance, niv, statut in lignes:
+        print(f"  [{NIVEAUX[niv]:>6}] {confiance:.2f}  {nom} ({type_infra})  {type_anom}  {statut}")
+    if sans_reference:
+        print(f"Points sans fréquence historique, non évalués : {', '.join(sans_reference)}")
 
 
 if __name__ == "__main__":
