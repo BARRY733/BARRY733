@@ -94,6 +94,28 @@ Pour chaque point surveillé, les scènes récentes (16 jours, scènes claires u
 
 Les seuils (`detection/__init__.py`) sont des valeurs de départ, à calibrer par le test à blanc de l'étape 6.
 
+## Étape 4 : Agents
+
+```bash
+python -m agents          # toutes les anomalies au statut « detecte »
+python -m agents 12       # un événement précis
+```
+
+| Agent | Fiche de mission | Rend |
+|---|---|---|
+| Analyste | `agents/fiches/analyste.md` | Faits rattachés aux preuves, gravité, impact sur l'accès, confiance |
+| Contradicteur | `agents/fiches/contradicteur.md` | Verdict `confirme`, `doute` ou `rejete`, explications alternatives |
+| Rédacteur | `agents/fiches/redacteur.md` | Titre, texte de 80 à 150 mots, preuves citées |
+| Conformité | `agents/fiches/conformite.md` | Conforme ou liste des manquements |
+
+`agents/fiches/commun.md` rappelle à tous la charte d'Œil Bleu.
+
+- **Dossier fermé** : les agents ne lisent pas la base ; le code leur transmet un dossier (point, mesures, signaux proches, preuves). Ce qui n'y figure pas n'existe pas pour eux.
+- **Ordre fixé par le code** : un rejet du Contradicteur arrête la chaîne et classe l'événement `rejete`. Un doute plafonne la confiance à `moyen`. La confiance retenue est toujours la plus prudente des avis.
+- **Double contrôle** : en plus de l'Agent Conformité, le code vérifie que les preuves citées existent dans le dossier et que la confiance affichée ne dépasse pas celle retenue.
+- **Rien n'est publié** : un texte conforme est `soumis`, niveau 2, en attente du directeur ; un texte non conforme reste `brouillon` avec ses manquements.
+- **Modèle** : `claude-opus-5`, sorties structurées, réflexion adaptative. Le repli automatique vers un autre modèle en cas de refus est activé (`fallbacks`).
+
 ## Tests
 
 ```bash
@@ -105,6 +127,5 @@ Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais 
 ## Étapes suivantes
 
 2. Collecte : GloFAS reste à brancher.
-4. Agents : Analyste, Contradicteur, Rédacteur, Conformité.
 5. Bulletin : gabarit, carte avant/après, envoi après validation du directeur.
 6. Test à blanc sur les crues 2024 au Sahel.
