@@ -89,3 +89,15 @@ def test_csv_invalide(tmp_path):
     csv.write_text("nom,type,latitude,longitude,zone_code\n,aeroport,abc,2,\n", encoding="utf-8")
     with pytest.raises(ValueError, match="ligne 2"):
         points.lire(csv)
+
+
+def test_chaine_quotidienne_sans_envoi(conn, monkeypatch, capsys):
+    from oeil_bleu import __main__ as cli
+
+    monkeypatch.setattr(cli, "COLLECTEURS", {})          # aucun appel réseau dans les tests
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    assert cli.quotidien(conn) == 0
+    sortie = capsys.readouterr().out
+    assert "agents non lancés" in sortie and "0 texte(s) attendent votre validation" in sortie
+    assert conn.execute("SELECT count(*) FROM terre.bulletin").fetchone()[0] == 0

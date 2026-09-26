@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--confiance-min", type=float, default=0.5)
     v = sous.add_parser("verifier-licence", help="le directeur confirme la licence d'une source")
     v.add_argument("source")
+    q = sous.add_parser("quotidien", help="collecte, détection et agents ; s'arrête avant l'envoi")
+    q.add_argument("--sans-agents", action="store_true")
     sous.add_parser("a-valider", help="publications en attente du directeur")
     for nom, aide in (("valider", "le directeur approuve une publication"),
                       ("rejeter", "le directeur retire une publication")):
@@ -72,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(faits) if faits else "Base déjà à jour.")
         elif args.commande == "detecter":
             afficher_detection(conn, args.jour)
+        elif args.commande == "quotidien":
+            return quotidien(conn, not args.sans_agents)
         elif args.commande == "a-valider":
             for pid, titre, contenu, confiance, avis in bulletin.a_valider(conn):
                 print(f"=== Publication {pid} · confiance {confiance} ===\n{titre}\n\n{contenu}\n\nAvis : {avis}\n")
@@ -176,6 +180,32 @@ def lancer_bulletin(conn, args) -> int:
     for e in echecs:
         print(f"  échec : {e}", file=sys.stderr)
     return 1 if echecs else 0
+
+
+def quotidien(conn, avec_agents: bool = True) -> int:
+    """Chaîne du jour, pensée pour une tâche programmée. Le bulletin reste manuel :
+    rien ne part sans la validation du directeur."""
+    import os
+
+    jour = date.today()
+    print(f"=== Œil Bleu, {jour:%d/%m/%Y} ===\n-- Collecte")
+    echec_collecte = collecter(conn, list(COLLECTEURS))
+    print("-- Détection")
+    afficher_detection(conn, jour)
+    code = echec_collecte
+    if avec_agents:
+        print("-- Agents")
+        if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            try:
+                lancer_agents(conn, jour, 0.5)
+            except Exception as e:
+                print(f"agents : échec, {type(e).__name__}: {e}", file=sys.stderr)
+                code = 1
+        else:
+            print("Clé API absente : agents non lancés.")
+    attente = len(bulletin.a_valider(conn))
+    print(f"-- {attente} texte(s) attendent votre validation : python -m oeil_bleu a-valider")
+    return code
 
 
 if __name__ == "__main__":

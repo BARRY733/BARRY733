@@ -19,7 +19,7 @@ Veille satellitaire des crues sur les bassins du Sénégal et du Niger. Le proto
 cp .env.example .env            # puis changer le mot de passe
 docker compose up -d db
 pip install -e ".[dev]"
-export $(grep -v '^#' .env | xargs)
+set -a; . ./.env; set +a      # charge les réglages
 python -m oeil_bleu migrer
 python -m oeil_bleu importer-points data/points_surveilles.csv
 ```
@@ -43,10 +43,10 @@ python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
 
 Chaque passage est noté dans `terre.collecte` (réussi ou échoué, avec l'erreur). Les données vont dans `terre.observation`. Une collecte peut être rejouée sans doublon ; un échec n'enregistre rien de partiel et n'empêche pas les autres sources.
 
-Pour une collecte quotidienne, une ligne cron suffit :
+Chaque matin, `python -m oeil_bleu quotidien` enchaîne collecte, détection et agents, puis indique combien de textes attendent la validation du directeur. Il n'envoie rien : le bulletin reste une décision humaine. Une source en panne n'arrête pas la chaîne ; sans clé API, les agents sont sautés. Une ligne cron suffit :
 
 ```cron
-0 6 * * * cd /srv/oeil-bleu && .venv/bin/python -m oeil_bleu collecter >> /var/log/oeil-bleu.log 2>&1
+0 6 * * * cd /srv/oeil-bleu && set -a && . ./.env && set +a && .venv/bin/python -m oeil_bleu quotidien >> /var/log/oeil-bleu.log 2>&1
 ```
 
 ## Détection (étape 3)
