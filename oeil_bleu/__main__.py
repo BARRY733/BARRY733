@@ -13,9 +13,10 @@ COLLECTEURS = {
     "gdacs": ("gdacs", "gdacs"),
     "firms": ("firms", "firms"),
     "deafrica": ("deafrica_wofs", "deafrica"),
+    "sentinel1": ("deafrica_s1", "sentinel1"),
     "glofas": ("glofas", "glofas"),
 }
-HISTORIQUE = {"gdacs", "deafrica"}   # sources qui savent collecter une saison passée
+HISTORIQUE = {"gdacs", "deafrica", "sentinel1"}   # sources qui savent collecter une saison passée
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     c = sous.add_parser("collecter", help="récupère les nouvelles données des sources")
     c.add_argument("sources", nargs="*", metavar="source",
                    help=f"parmi {', '.join(COLLECTEURS)} (toutes par défaut)")
-    c.add_argument("--debut", type=date.fromisoformat, help="saison passée : premier jour (gdacs, deafrica)")
+    c.add_argument("--debut", type=date.fromisoformat, help="saison passée : premier jour (gdacs, deafrica, sentinel1)")
     c.add_argument("--fin", type=date.fromisoformat, help="saison passée : dernier jour")
     t = sous.add_parser("test-a-blanc", help="rejoue la détection sur une saison passée et la note")
     t.add_argument("--debut", type=date.fromisoformat, required=True)
@@ -61,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         if not (args.debut and args.fin) or args.debut > args.fin:
             parser.error("--debut et --fin vont ensemble, debut avant fin")
         if autres := set(args.sources or COLLECTEURS) - HISTORIQUE:
-            parser.error(f"pas de saison passée pour : {', '.join(sorted(autres))} (possibles : gdacs, deafrica)")
+            parser.error(f"pas de saison passée pour : {', '.join(sorted(autres))} (possibles : {', '.join(sorted(HISTORIQUE))})")
     if args.commande == "test-a-blanc" and args.debut > args.fin:
         parser.error("--debut doit précéder --fin")
 

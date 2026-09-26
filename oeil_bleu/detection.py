@@ -3,6 +3,13 @@
 Règle centrale : de l'eau observée par satellite là où, historiquement, il n'y en
 a presque jamais. Les alertes GDACS proches et la tendance GloFAS renforcent ou
 nuancent la confiance, mais ne suffisent jamais seules à une anomalie forte.
+
+Deux yeux complémentaires :
+- Landsat (optique) : fiable, mais aveugle sous les nuages de la saison des pluies ;
+- Sentinel-1 (radar) : voit à travers les nuages. L'eau calme renvoie peu de signal,
+  mais le sable sec et les pistes aussi. On exige donc une chute nette par rapport
+  à l'état habituel du point, et le radar ne sert qu'à voir de l'eau, jamais à
+  conclure qu'un point est sec (une crue sous la végétation peut renforcer le signal).
 """
 
 from dataclasses import dataclass, field
@@ -16,6 +23,11 @@ RAYON_GDACS_KM = 50
 FREQ_RARE = 0.20              # eau vue moins de 20 % du temps historiquement
 FREQ_TRES_RARE = 0.05
 HAUSSE_GLOFAS = 1.5           # débit maximal prévu / débit du premier jour
+SEUIL_VV_DB = -18.0           # rétrodiffusion VV sous laquelle la surface peut être de l'eau
+BAISSE_VV_DB = 3.0            # chute minimale par rapport à la référence du point
+REFERENCE_JOURS = 365         # période de référence radar, avant la fenêtre
+REFERENCE_MIN = 5             # passages radar nécessaires pour établir la référence
+MALUS_RADAR_SEUL = 0.10       # eau vue au radar seulement : moins sûr que l'optique
 
 
 @dataclass
@@ -28,6 +40,8 @@ class Faits:
     gdacs: list[tuple[float, float]]             # (niveau 1-3, distance km)
     debits: list[tuple[int, float]]              # (échéance h, m3/s), dernière prévision
     observations: list[int] = field(default_factory=list)
+    radar: list[tuple[datetime, float]] = field(default_factory=list)   # (date, VV en dB), fenêtre
+    reference_vv: float | None = None            # médiane VV du point sur la période de référence
 
 
 @dataclass
@@ -52,6 +66,14 @@ def tendance_glofas(debits: list[tuple[int, float]]) -> float | None:
     return max(d for _, d in debits) / premier if premier > 0 else None
 
 
+def radar_eau(f: Faits) -> list[tuple[datetime, float]]:
+    """Passages radar de la fenêtre qui montrent de l'eau : (date, chute en dB)."""
+    if f.reference_vv is None:
+        return []
+    return [(d, f.reference_vv - vv) for d, vv in f.radar
+            if vv <= SEUIL_VV_DB and f.reference_vv - vv >= BAISSE_VV_DB]
+
+
 def evaluer(f: Faits) -> Anomalie | None:
     elements: dict = {"observations": f.observations}
     gdacs_fort = any(n >= 2 for n, _ in f.gdacs)
@@ -63,13 +85,18 @@ def evaluer(f: Faits) -> Anomalie | None:
     if tendance is not None:
         elements["glofas_tendance"] = round(tendance, 2)
 
-    eau = sorted(f.eau)
+    radar = radar_eau(f)
+    # Le radar n'ajoute que des passages « eau » : il ne peut pas déclarer un point sec.
+    eau = sorted(f.eau + [(d, 1) for d, _ in radar])
     derniere = eau[-1] if eau else None
     mouille = sum(v for _, v in eau)
+    optique_mouille = any(v for _, v in f.eau)
 
     if (f.frequence_historique is not None and derniere and derniere[1] == 1
             and f.frequence_historique < FREQ_RARE):
         c = 0.60 if f.frequence_historique < FREQ_TRES_RARE else 0.45
+        if not optique_mouille:
+            c -= MALUS_RADAR_SEUL
         if mouille >= 2:
             c += 0.15
         c += 0.15 if gdacs_fort else 0.05 if gdacs_vert else 0
@@ -82,6 +109,11 @@ def evaluer(f: Faits) -> Anomalie | None:
             "passages_avec_eau": mouille,
             "passages_degages": len(eau),
         }
+        if radar:
+            elements["radar"] = {"passages_avec_eau": len(radar),
+                                 "chute_max_db": round(max(b for _, b in radar), 1),
+                                 "reference_db": round(f.reference_vv, 1),
+                                 "optique_confirme": optique_mouille}
         return Anomalie(f.infrastructure_id, "eau_hors_etendue", c, niveau(c), elements)
 
     # Sans eau confirmée par satellite, une alerte proche reste une simple menace.
@@ -120,6 +152,17 @@ def rassembler(conn: psycopg.Connection, jour: date) -> list[Faits]:
             " AND ST_DWithin(o.geom::geography, i.geom::geography, %s)",
             (infra_id, fin, debut, RAYON_GDACS_KM * 1000),
         ).fetchall()
+        radar = conn.execute(
+            "SELECT id, observe_le, valeur FROM terre.observation WHERE infrastructure_id = %s"
+            " AND variable = 'retrodiffusion_vv' AND observe_le BETWEEN %s AND %s",
+            (infra_id, debut, fin),
+        ).fetchall()
+        n_ref, ref = conn.execute(
+            "SELECT count(*), percentile_cont(0.5) WITHIN GROUP (ORDER BY valeur)"
+            " FROM terre.observation WHERE infrastructure_id = %s AND variable = 'retrodiffusion_vv'"
+            " AND observe_le >= %s AND observe_le < %s",
+            (infra_id, debut - timedelta(days=REFERENCE_JOURS), debut),
+        ).fetchone()
         debits = conn.execute(
             "SELECT id, (brut->>'echeance_h')::int, valeur FROM terre.observation"
             " WHERE infrastructure_id = %s AND variable = 'debit_prevu'"
@@ -136,7 +179,9 @@ def rassembler(conn: psycopg.Connection, jour: date) -> list[Faits]:
             gdacs=[(v, km) for _, v, km in gdacs if v is not None],
             debits=[(h, v) for _, h, v in debits],
             observations=sorted(([freq[0]] if freq else []) + [r[0] for r in eau]
-                                + [r[0] for r in gdacs] + [r[0] for r in debits]),
+                                + [r[0] for r in gdacs] + [r[0] for r in debits] + [r[0] for r in radar]),
+            radar=[(d, v) for _, d, v in radar],
+            reference_vv=ref if n_ref >= REFERENCE_MIN else None,
         ))
     return faits
 

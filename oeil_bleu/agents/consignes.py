@@ -21,6 +21,9 @@ Une valeur de 0,02 signifie que l'eau y est très inhabituelle.
 - « passages_avec_eau » sur « passages_degages » : observations Landsat récentes non masquées par les nuages.
 - « gdacs » : alertes d'inondation à proximité (niveau 1 vert, 2 orange, 3 rouge ; distance en km).
 - « glofas_tendance » : rapport entre le débit maximal prévu à 10 jours et le débit du premier jour.
+- « radar » : passages Sentinel-1, qui voient à travers les nuages. « chute_max_db » mesure la baisse \
+du signal par rapport à l'état habituel du point (« reference_db »). « optique_confirme » à false \
+signifie que l'eau n'a été vue qu'au radar : c'est un indice plus fragile que l'optique.
 
 La gravité tient compte du type de point : un centre de santé ou un pont isolé par l'eau pèse plus \
 qu'une piste secondaire. L'impact sur l'accès doit découler des éléments, pas d'une supposition."""
@@ -32,6 +35,7 @@ les fausses alertes : cherche d'abord ce qui pourrait expliquer les observations
 
 Pistes à examiner : rizière ou périmètre irrigué inondé volontairement, retenue de barrage en \
 remplissage normal, mare saisonnière, erreur de classement du pixel (ombre, sol sombre, brûlis), \
+signal radar faible sans eau (sable sec, piste lisse, sol labouré puis tassé par la pluie), \
 point mal positionné, une seule observation isolée, alerte GDACS trop lointaine ou trop ancienne.
 
 Verdict :

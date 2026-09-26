@@ -39,6 +39,7 @@ python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
 | `firms` | Foyers de feu VIIRS et leur puissance | Emprise des deux bassins | `FIRMS_MAP_KEY` |
 | `deafrica` | Eau observée par Landsat, et fréquence historique de l'eau | Chaque point surveillé | Aucune |
 | `glofas` | Débit prévu à 1 à 10 jours | Chaque point surveillé | `CDSAPI_KEY` |
+| `sentinel1` | Signal radar VV, qui traverse les nuages | Chaque point surveillé | Aucune |
 
 Chaque passage est noté dans `terre.collecte` (réussi ou échoué, avec l'erreur). Les données vont dans `terre.observation`. Une collecte peut être rejouée sans doublon ; un échec n'enregistre rien de partiel et n'empêche pas les autres sources.
 
@@ -67,6 +68,14 @@ Règle centrale : de l'eau vue par satellite sur un point où, par le passé, il
 | Plafond | 0,95 |
 
 Niveau : élevé à partir de 0,75, moyen à partir de 0,50, faible en dessous.
+
+**Radar Sentinel-1.** En saison des pluies, les nuages masquent souvent Landsat. Le radar voit à travers, mais le sable sec et les pistes renvoient aussi peu de signal que l'eau. Un passage radar ne compte donc comme « eau » que si le signal est sous −18 dB **et** a chuté d'au moins 3 dB par rapport à la médiane du point sur l'année précédente (au moins 5 passages). Un point toujours sombre, comme une dune, ne déclenche rien. Le radar ne sert qu'à voir de l'eau, jamais à déclarer un point sec : une crue sous la végétation peut renforcer le signal. Une eau vue au radar seulement coûte 0,10 de confiance.
+
+Première mise en route : collecter une année de radar pour établir la référence de chaque point.
+
+```bash
+python -m oeil_bleu collecter sentinel1 --debut 2023-09-01 --fin 2024-08-31
+```
 
 Une alerte GDACS orange ou rouge sans eau confirmée par satellite donne au plus une « menace de crue » de niveau faible. Si le dernier passage dégagé montre un point sec, l'alerte est ignorée pour ce point. Les points sans fréquence historique ne sont pas évalués et sont listés à part.
 
@@ -131,7 +140,7 @@ python -m oeil_bleu bulletin --envoyer --meme-vide   # envoie aussi « rien à s
 But : mesurer le taux de fausses alertes et le taux de détection avant tout envoi réel, en rejouant une saison passée, par exemple les crues de 2024 au Sahel.
 
 1. Importer les points surveillés (voir plus bas).
-2. Collecter la saison : `python -m oeil_bleu collecter gdacs deafrica --debut 2024-07-01 --fin 2024-10-31`
+2. Collecter la saison : `python -m oeil_bleu collecter gdacs deafrica --debut 2024-07-01 --fin 2024-10-31`, et `sentinel1` du 2023-09-01 au 2024-10-31.
 3. Remplir `data/verite_terrain.csv` : une ligne par crue réellement constatée sur un point surveillé (`point,debut,fin,source`), d'après les rapports de situation (OCHA, ReliefWeb, protection civile) et les contacts locaux. Un point absent du fichier est réputé non inondé sur la période.
 4. Lancer : `python -m oeil_bleu test-a-blanc --debut 2024-07-01 --fin 2024-10-31`
 
@@ -146,7 +155,7 @@ Le rejeu ne modifie pas la base. Il affiche, pour chaque seuil de confiance (fai
 
 Le détail de chaque épisode est écrit dans `episodes.csv`, pour examiner les fausses alertes une à une. Les réglages à ajuster sont en tête de `oeil_bleu/detection.py`.
 
-Limites du rejeu : GloFAS et FIRMS ne sont pas rejoués (seuls GDACS et Digital Earth Africa savent collecter une saison passée). La fréquence historique de l'eau inclut l'année rejouée elle-même, ce qui rend la détection un peu plus prudente qu'en conditions réelles.
+Pour rejouer 2024 avec le radar, collecter aussi `sentinel1` depuis septembre 2023 (référence d'un an). Limites du rejeu : GloFAS et FIRMS ne sont pas rejoués. La fréquence historique de l'eau inclut l'année rejouée elle-même, ce qui rend la détection un peu plus prudente qu'en conditions réelles.
 
 ## Modèle Terre
 
@@ -178,7 +187,7 @@ L'import refuse le fichier entier si une ligne est invalide ou hors de sa zone. 
 - Les licences des sources sont marquées « à vérifier » en attendant l'Agent Conformité.
 - Les collecteurs n'ont été testés que sur des données d'exemple : l'environnement de développement n'a pas accès aux serveurs des sources. Premier passage réel à surveiller.
 - Digital Earth Africa est lu sur un seul pixel de 30 m par point. GloFAS retient, parmi la maille la plus proche et ses 8 voisines, celle au plus fort débit : c'est en général le fleuve, à vérifier point par point.
-- Les nuages de la saison des pluies masquent souvent Landsat : une crue peut passer entre deux passages dégagés. Le radar Sentinel-1, qui voit à travers les nuages, serait le prochain ajout.
+- Les seuils radar (−18 dB, chute de 3 dB) sont des valeurs de départ courantes, à calibrer lors du test à blanc.
 
 ## Tests
 
