@@ -1,23 +1,9 @@
 """Tests de l'étape 1. Nécessitent une base PostGIS vide dans TEST_DATABASE_URL."""
 
-import os
-
 import psycopg
 import pytest
 
 from oeil_bleu import db, points
-
-URL = os.environ.get("TEST_DATABASE_URL")
-pytestmark = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL non défini")
-
-
-@pytest.fixture
-def conn():
-    with psycopg.connect(URL, autocommit=True) as c:
-        c.execute("DROP SCHEMA IF EXISTS terre CASCADE")
-        c.execute("DROP TABLE IF EXISTS public.migration_appliquee")
-        db.migrer(c)
-        yield c
 
 
 def test_migration_idempotente(conn):
