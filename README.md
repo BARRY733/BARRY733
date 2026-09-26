@@ -231,7 +231,7 @@ L'import refuse le fichier entier si une ligne est invalide ou hors de sa zone. 
 - Les emprises des bassins et de l'Afrique sont des rectangles approximatifs, à remplacer par les contours HydroBASINS et Natural Earth. Celui de l'Afrique déborde sur la péninsule Arabique et le sud de l'Europe.
 - Hors d'Afrique, un point ne peut pas encore être surveillé finement : Digital Earth Africa ne couvre que le continent. Il faudra des sources mondiales équivalentes (Sentinel-1 et Landsat via Copernicus ou la NASA).
 - Un point sur une étendue d'eau permanente (fleuve, lac, lagune) ne déclenche jamais d'alerte : l'eau y est habituelle. Surveiller plutôt ce que la crue coupe (route, quartier, gué).
-- Les licences des sources sont marquées « à vérifier » en attendant l'Agent Conformité.
+- Les licences des sources ont été relevées sur leurs pages officielles (`db/seeds/006_licences.sql`) : toutes autorisent la réutilisation avec mention de la source. Leur confirmation reste un acte du directeur (`verifier-licence`) ; tant qu'elle manque, les textes restent bloqués.
 - Les collecteurs n'ont été testés que sur des données d'exemple : l'environnement de développement n'a pas accès aux serveurs des sources. Premier passage réel à surveiller.
 - Digital Earth Africa est lu sur un seul pixel de 30 m par point. GloFAS retient, parmi la maille la plus proche et ses 8 voisines, celle au plus fort débit : c'est en général le fleuve, à vérifier point par point.
 - Les seuils radar (−18 dB, chute de 3 dB) sont des valeurs de départ courantes, à calibrer lors du test à blanc.

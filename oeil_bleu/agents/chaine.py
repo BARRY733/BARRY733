@@ -143,7 +143,10 @@ def _licence_ok(conn, code: str) -> bool:
 
 
 def _texte_final(texte: str, sources: list[dict]) -> str:
-    attributions = ", ".join(s["attribution"] for s in sources) or "aucune"
+    from datetime import date
+
+    attributions = ", ".join(s["attribution"].replace("{annee}", str(date.today().year))
+                             for s in sources) or "aucune"
     return f"{texte.strip()}\n\nSources : {attributions}.\n{MENTION_IA}"
 
 
