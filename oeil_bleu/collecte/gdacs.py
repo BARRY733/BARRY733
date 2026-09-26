@@ -42,9 +42,11 @@ def lire_geojson(texte: str, emprise: tuple[float, float, float, float]) -> list
     return observations
 
 
-def collecter(conn, jours: int = 14):
-    fin = date.today()
-    texte = telecharger(URL.format(debut=fin - timedelta(days=jours), fin=fin)).decode()
+def collecter(conn, jours: int = 14, debut: date | None = None, fin: date | None = None):
+    """Par défaut les 14 derniers jours ; debut et fin pour une saison passée (test à blanc)."""
+    fin = fin or date.today()
+    debut = debut or fin - timedelta(days=jours)
+    texte = telecharger(URL.format(debut=debut, fin=fin)).decode()
     # GDACS répond vide (ou 204) quand aucun événement n'existe sur la période.
     if not texte.strip():
         return []

@@ -11,7 +11,7 @@ Veille satellitaire des crues sur les bassins du Sénégal et du Niger. Le proto
 | 3. Détection | Anomalies quotidiennes avec niveau de confiance | Fait, seuils à régler au test à blanc |
 | 4. Agents | Analyste, Contradicteur, Rédacteur, Conformité | Fait, à essayer avec une clé API |
 | 5. Bulletin | Gabarit, carte avant/après, envoi après validation | Fait, à essayer avec un compte SMTP |
-| 6. Test à blanc | Taux de fausses alertes sur les crues passées | À venir |
+| 6. Test à blanc | Taux de fausses alertes sur les crues passées | Outil prêt, à lancer sur la saison 2024 |
 
 ## Démarrer
 
@@ -125,6 +125,28 @@ python -m oeil_bleu bulletin --envoyer --meme-vide   # envoie aussi « rien à s
 - Si tous les envois échouent, rien n'est marqué comme publié et le bulletin peut être relancé.
 - Envoi par SMTP, compatible avec tout fournisseur (réglages `SMTP_*` dans `.env`).
 - Les destinataires sont dans `data/destinataires.csv` (colonnes `courriel,nom,organisation`, modèle dans `data/destinataires.exemple.csv`). Ce fichier contient des données personnelles : il n'est pas versionné.
+
+## Test à blanc (étape 6)
+
+But : mesurer le taux de fausses alertes et le taux de détection avant tout envoi réel, en rejouant une saison passée, par exemple les crues de 2024 au Sahel.
+
+1. Importer les points surveillés (voir plus bas).
+2. Collecter la saison : `python -m oeil_bleu collecter gdacs deafrica --debut 2024-07-01 --fin 2024-10-31`
+3. Remplir `data/verite_terrain.csv` : une ligne par crue réellement constatée sur un point surveillé (`point,debut,fin,source`), d'après les rapports de situation (OCHA, ReliefWeb, protection civile) et les contacts locaux. Un point absent du fichier est réputé non inondé sur la période.
+4. Lancer : `python -m oeil_bleu test-a-blanc --debut 2024-07-01 --fin 2024-10-31`
+
+Le rejeu ne modifie pas la base. Il affiche, pour chaque seuil de confiance (faible, moyen, élevé) :
+
+| Mesure | Définition |
+| --- | --- |
+| Alertes | Épisodes d'alerte : jours consécutifs sur un même point |
+| Fausses % | Part des épisodes sans crue constatée (tolérance de 7 jours après la fin de la crue) |
+| Détection % | Part des crues constatées qui ont déclenché au moins une alerte |
+| Délai médian | Jours entre le début constaté de la crue et la première alerte |
+
+Le détail de chaque épisode est écrit dans `episodes.csv`, pour examiner les fausses alertes une à une. Les réglages à ajuster sont en tête de `oeil_bleu/detection.py`.
+
+Limites du rejeu : GloFAS et FIRMS ne sont pas rejoués (seuls GDACS et Digital Earth Africa savent collecter une saison passée). La fréquence historique de l'eau inclut l'année rejouée elle-même, ce qui rend la détection un peu plus prudente qu'en conditions réelles.
 
 ## Modèle Terre
 

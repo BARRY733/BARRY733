@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 data/destinataires.csv
 bulletin.html
+episodes.csv

@@ -39,12 +39,21 @@ def chercher(collection: str, emprise: list[float], periode: str | None, limite:
     corps = {"collections": [collection], "bbox": emprise, "limit": limite}
     if periode:
         corps["datetime"] = periode
-    requete = urllib.request.Request(
-        STAC, data=json.dumps(corps).encode(), method="POST",
-        headers={"Content-Type": "application/json", "User-Agent": AGENT},
-    )
-    with urllib.request.urlopen(requete, timeout=120) as r:
-        return json.load(r).get("features", [])
+    elements, url, methode = [], STAC, "POST"
+    while True:
+        requete = urllib.request.Request(
+            url, data=json.dumps(corps).encode() if methode == "POST" else None, method=methode,
+            headers={"Content-Type": "application/json", "User-Agent": AGENT},
+        )
+        with urllib.request.urlopen(requete, timeout=120) as r:
+            page = json.load(r)
+        elements += page.get("features", [])
+        # Une longue période dépasse une page de résultats : on suit le lien « next ».
+        suivant = next((l for l in page.get("links", []) if l.get("rel") == "next"), None)
+        if not suivant or not page.get("features"):
+            return elements
+        url, methode = suivant["href"], suivant.get("method", "GET").upper()
+        corps = suivant.get("body", corps)
 
 
 def lire_pixel(href: str, lon: float, lat: float) -> float | None:
@@ -125,13 +134,15 @@ def _emprise_points(points, marge: float = 0.01) -> list[float]:
     return [min(lons) - marge, min(lats) - marge, max(lons) + marge, max(lats) + marge]
 
 
-def collecter(conn, jours: int = 16):
+def collecter(conn, jours: int = 16, debut: date | None = None, fin: date | None = None):
+    """Par défaut les 16 derniers jours ; debut et fin pour une saison passée (test à blanc)."""
     points = points_surveilles(conn)
     if not points:
         return []
     emprise = _emprise_points(points)
-    fin = date.today()
-    periode = f"{fin - timedelta(days=jours)}T00:00:00Z/{fin}T23:59:59Z"
+    fin = fin or date.today()
+    debut = debut or fin - timedelta(days=jours)
+    periode = f"{debut}T00:00:00Z/{fin}T23:59:59Z"
     resultat = observations_frequence(chercher("wofs_ls_summary_alltime", emprise, None), points)
     resultat += observations_wofs(chercher("wofs_ls", emprise, periode), points)
     return resultat

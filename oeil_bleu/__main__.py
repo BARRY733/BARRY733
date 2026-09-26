@@ -15,6 +15,7 @@ COLLECTEURS = {
     "deafrica": ("deafrica_wofs", "deafrica"),
     "glofas": ("glofas", "glofas"),
 }
+HISTORIQUE = {"gdacs", "deafrica"}   # sources qui savent collecter une saison passée
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,6 +28,13 @@ def main(argv: list[str] | None = None) -> int:
     c = sous.add_parser("collecter", help="récupère les nouvelles données des sources")
     c.add_argument("sources", nargs="*", metavar="source",
                    help=f"parmi {', '.join(COLLECTEURS)} (toutes par défaut)")
+    c.add_argument("--debut", type=date.fromisoformat, help="saison passée : premier jour (gdacs, deafrica)")
+    c.add_argument("--fin", type=date.fromisoformat, help="saison passée : dernier jour")
+    t = sous.add_parser("test-a-blanc", help="rejoue la détection sur une saison passée et la note")
+    t.add_argument("--debut", type=date.fromisoformat, required=True)
+    t.add_argument("--fin", type=date.fromisoformat, required=True)
+    t.add_argument("--verite", type=Path, default=db.RACINE / "data" / "verite_terrain.csv")
+    t.add_argument("--episodes", type=Path, default=Path("episodes.csv"), help="détail des alertes (CSV)")
     d = sous.add_parser("detecter", help="liste les anomalies du jour sur les points surveillés")
     d.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
     a = sous.add_parser("agents", help="fait passer les anomalies du jour dans la chaîne des agents")
@@ -49,6 +57,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.commande == "collecter" and (inconnues := set(args.sources) - set(COLLECTEURS)):
         parser.error(f"source(s) inconnue(s) : {', '.join(sorted(inconnues))}")
+    if args.commande == "collecter" and (args.debut or args.fin):
+        if not (args.debut and args.fin) or args.debut > args.fin:
+            parser.error("--debut et --fin vont ensemble, debut avant fin")
+        if autres := set(args.sources or COLLECTEURS) - HISTORIQUE:
+            parser.error(f"pas de saison passée pour : {', '.join(sorted(autres))} (possibles : gdacs, deafrica)")
+    if args.commande == "test-a-blanc" and args.debut > args.fin:
+        parser.error("--debut doit précéder --fin")
 
     with db.connecter() as conn:
         if args.commande == "migrer":
@@ -78,7 +93,16 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(f"Licence de {args.source} confirmée.")
         elif args.commande == "collecter":
-            return collecter(conn, args.sources or list(COLLECTEURS))
+            periode = {"debut": args.debut, "fin": args.fin} if args.debut else {}
+            return collecter(conn, args.sources or list(COLLECTEURS), **periode)
+        elif args.commande == "test-a-blanc":
+            from .rejeu import test_a_blanc
+            try:
+                print(test_a_blanc(conn, args.debut, args.fin, args.verite, args.episodes))
+            except (ValueError, FileNotFoundError) as e:
+                print(e, file=sys.stderr)
+                return 1
+            print(f"\nDétail des alertes : {args.episodes}")
         else:
             try:
                 n = points.importer(conn, points.lire(args.csv))
@@ -89,15 +113,17 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def collecter(conn, noms: list[str]) -> int:
+def collecter(conn, noms: list[str], **periode) -> int:
     """Lance chaque collecteur ; un échec n'empêche pas les suivants."""
+    from functools import partial
     from importlib import import_module
 
     echecs = 0
     for nom in noms:
         code, module = COLLECTEURS[nom]
         try:
-            n = executer(conn, code, import_module(f".collecte.{module}", __package__).collecter)
+            fonction = import_module(f".collecte.{module}", __package__).collecter
+            n = executer(conn, code, partial(fonction, **periode))
             print(f"{nom} : {n} observation(s) nouvelle(s)")
         except Exception as e:
             echecs += 1
