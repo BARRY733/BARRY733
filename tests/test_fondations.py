@@ -45,6 +45,7 @@ def test_publication_sans_preuve_refusee(conn):
 def test_niveau_2_exige_un_humain(conn):
     ev, pub = _evenement_et_publication(conn, 2)
     _ajouter_preuve(conn, ev, pub)
+    conn.execute("UPDATE terre.publication SET statut = 'en_validation' WHERE id = %s", (pub,))
     conn.execute(
         "INSERT INTO terre.validation (publication_id, validateur, role, decision)"
         " VALUES (%s, 'Agent Contradicteur', 'agent', 'approuve')",

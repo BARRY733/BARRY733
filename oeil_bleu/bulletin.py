@@ -56,6 +56,48 @@ def decider(conn, publication_id: int, directeur: str, approuve: bool, motif: st
                      ("validee" if approuve else "retiree", publication_id))
 
 
+def retirer(conn, publication_id: int, directeur: str, motif: str) -> None:
+    """Retire un texte validé ou publié. Rien n'est effacé : le retrait est enregistré
+    et, pour un texte déjà envoyé, annoncé dans le bulletin suivant."""
+    if not (motif or "").strip():
+        raise ValueError("un retrait exige un motif")
+    with conn.transaction():
+        statut = conn.execute("SELECT statut FROM terre.publication WHERE id = %s FOR UPDATE",
+                              (publication_id,)).fetchone()
+        if statut is None:
+            raise ValueError(f"publication {publication_id} inconnue")
+        if statut[0] not in ("validee", "publiee"):
+            raise ValueError(f"publication {publication_id} en statut « {statut[0]} » : rien à retirer")
+        conn.execute(
+            "INSERT INTO terre.validation (publication_id, validateur, role, decision, commentaire)"
+            " VALUES (%s, %s, 'humain', 'rejete', %s)", (publication_id, directeur, motif.strip()))
+        conn.execute("UPDATE terre.publication SET statut = 'retiree' WHERE id = %s", (publication_id,))
+
+
+@dataclass
+class Retrait:
+    publication_id: int
+    titre: str
+    lieu: str
+    publie_le: object
+    motif: str
+
+
+def retraits_a_annoncer(conn) -> list[Retrait]:
+    """Textes envoyés puis retirés, pas encore signalés aux destinataires."""
+    return [Retrait(*l) for l in conn.execute(
+        "SELECT p.id, p.titre, coalesce(i.nom, ''), p.publie_le,"
+        " (SELECT v.commentaire FROM terre.validation v WHERE v.publication_id = p.id AND v.role = 'humain'"
+        "  ORDER BY v.valide_le DESC, v.id DESC LIMIT 1)"
+        " FROM terre.publication p"
+        " LEFT JOIN terre.anomalie a ON a.evenement_id = p.evenement_id"
+        " LEFT JOIN terre.infrastructure i ON i.id = a.infrastructure_id"
+        " WHERE p.statut = 'retiree' AND p.publie_le IS NOT NULL"
+        " AND NOT EXISTS (SELECT 1 FROM terre.bulletin_retrait r WHERE r.publication_id = p.id)"
+        " ORDER BY p.publie_le"
+    ).fetchall()]
+
+
 # --- Composition ----------------------------------------------------------------
 
 @dataclass
@@ -87,9 +129,17 @@ def date_longue(jour: date) -> str:
     return f"{jour.day} {MOIS[jour.month - 1]} {jour.year}"
 
 
-def composer_html(entrees: list[Entree], jour: date) -> str:
+def composer_html(entrees: list[Entree], jour: date, retraits: list[Retrait] = ()) -> str:
     e = html.escape
     blocs = []
+    for r in retraits:
+        blocs.append(
+            '<tr><td style="padding:16px 24px;border-top:1px solid #e4e3dc;background:#fbeaea">'
+            '<p style="margin:0 0 4px;font-size:13px;color:#b3261e"><strong>Rectificatif</strong></p>'
+            f'<p style="margin:0;font-size:15px;line-height:1.5;color:#1f1f1e">L\'alerte « {e(r.titre)} »'
+            f'{" (" + e(r.lieu) + ")" if r.lieu else ""}, diffusée le {r.publie_le:%d/%m/%Y}, est retirée. '
+            f'Motif : {e(r.motif or "non précisé")}.</p></td></tr>'
+        )
     for n in entrees:
         paragraphes = "".join(f'<p style="margin:0 0 10px">{e(p)}</p>'
                               for p in n.contenu.split("\n") if p.strip())
@@ -105,6 +155,8 @@ def composer_html(entrees: list[Entree], jour: date) -> str:
         )
     resume = (f"{len(entrees)} alerte{'s' if len(entrees) > 1 else ''} validée{'s' if len(entrees) > 1 else ''}"
               if entrees else "Aucune crue inhabituelle confirmée sur les points surveillés.")
+    if retraits:
+        resume += f" · {len(retraits)} rectificatif{'s' if len(retraits) > 1 else ''}"
     return (
         '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -129,8 +181,12 @@ def composer_html(entrees: list[Entree], jour: date) -> str:
     )
 
 
-def composer_texte(entrees: list[Entree], jour: date) -> str:
+def composer_texte(entrees: list[Entree], jour: date, retraits: list[Retrait] = ()) -> str:
     lignes = [f"ŒIL BLEU — Bulletin des crues — {date_longue(jour)}", ""]
+    for r in retraits:
+        lieu = f" ({r.lieu})" if r.lieu else ""
+        lignes += [f"RECTIFICATIF : l'alerte « {r.titre} »{lieu}, diffusée le {r.publie_le:%d/%m/%Y}, "
+                   f"est retirée. Motif : {r.motif or 'non précisé'}.", ""]
     if not entrees:
         lignes.append("Aucune crue inhabituelle confirmée sur les points surveillés.")
     for n in entrees:
@@ -153,14 +209,17 @@ def ajouter_cartes(conn, entrees: list[Entree], fabrique=None) -> None:
         n.cid = make_msgid(domain="oeil-bleu") if n.carte else None
 
 
-def message(entrees: list[Entree], jour: date, expediteur: str, destinataire: str) -> EmailMessage:
+def message(entrees: list[Entree], jour: date, expediteur: str, destinataire: str,
+            retraits: list[Retrait] = ()) -> EmailMessage:
     m = EmailMessage()
-    m["Subject"] = (f"Œil Bleu — {date_longue(jour)} — {len(entrees)} alerte(s)" if entrees
-                    else f"Œil Bleu — {date_longue(jour)} — rien à signaler")
+    objet = f"{len(entrees)} alerte(s)" if entrees else "rien à signaler"
+    if retraits:
+        objet = (f"{objet}, " if entrees else "") + f"{len(retraits)} rectificatif(s)"
+    m["Subject"] = f"Œil Bleu — {date_longue(jour)} — {objet}"
     m["From"] = expediteur
     m["To"] = destinataire
-    m.set_content(composer_texte(entrees, jour))
-    m.add_alternative(composer_html(entrees, jour), subtype="html")
+    m.set_content(composer_texte(entrees, jour, retraits))
+    m.add_alternative(composer_html(entrees, jour, retraits), subtype="html")
     partie_html = m.get_payload()[1]
     for n in entrees:
         if n.carte:
@@ -194,16 +253,18 @@ def smtp_depuis_env():
 
 def envoyer(conn, jour: date, destinataires: list[str], serveur, expediteur: str,
             entrees: list[Entree] | None = None, meme_vide: bool = False) -> tuple[int, int, list[str]]:
-    """Envoie le bulletin ; renvoie (id du bulletin ou 0, nombre d'entrées, adresses en échec)."""
+    """Envoie le bulletin ; renvoie (id du bulletin ou 0, nombre d'entrées, adresses en échec).
+    Les retraits de textes déjà envoyés partent avec, en tête, sous forme de rectificatifs."""
     if entrees is None:
         entrees = entrees_pretes(conn)
         ajouter_cartes(conn, entrees)
-    if not entrees and not meme_vide:
+    retraits = retraits_a_annoncer(conn)
+    if not entrees and not retraits and not meme_vide:
         return 0, 0, []
     echecs = []
     for adresse in destinataires:
         try:
-            serveur.send_message(message(entrees, jour, expediteur, adresse))
+            serveur.send_message(message(entrees, jour, expediteur, adresse, retraits))
         except smtplib.SMTPException as err:
             echecs.append(f"{adresse} ({err})")
     if len(echecs) == len(destinataires):
@@ -212,8 +273,10 @@ def envoyer(conn, jour: date, destinataires: list[str], serveur, expediteur: str
         bulletin_id = conn.execute(
             "INSERT INTO terre.bulletin (jour, html, nb_destinataires, nb_echecs)"
             " VALUES (%s, %s, %s, %s) RETURNING id",
-            (jour, composer_html(entrees, jour), len(destinataires) - len(echecs), len(echecs)),
+            (jour, composer_html(entrees, jour, retraits), len(destinataires) - len(echecs), len(echecs)),
         ).fetchone()[0]
+        for r in retraits:
+            conn.execute("INSERT INTO terre.bulletin_retrait VALUES (%s, %s)", (bulletin_id, r.publication_id))
         for n in entrees:
             conn.execute("INSERT INTO terre.bulletin_publication VALUES (%s, %s)", (bulletin_id, n.publication_id))
             conn.execute("UPDATE terre.publication SET statut = 'publiee', publie_le = now() WHERE id = %s",
@@ -227,7 +290,7 @@ def apercu(conn, jour: date, chemin: Path) -> int:
 
     entrees = entrees_pretes(conn)
     ajouter_cartes(conn, entrees)
-    page = composer_html(entrees, jour)
+    page = composer_html(entrees, jour, retraits_a_annoncer(conn))
     for n in entrees:
         if n.carte:
             page = page.replace(f"cid:{n.cid[1:-1]}",

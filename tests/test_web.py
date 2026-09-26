@@ -103,3 +103,17 @@ def test_configuration_obligatoire(monkeypatch):
     monkeypatch.delenv("DIRECTEUR_NOM", raising=False)
     with pytest.raises(RuntimeError, match="DIRECTEUR_MOT_DE_PASSE"):
         creer_app("postgresql://inutile")
+
+
+def test_retrait_depuis_la_page(client, publication, conn):  # noqa: F811
+    t = jeton(client)
+    client.post(f"/publication/{publication}/decision", data={"choix": "valider", "jeton": t}, headers=AUTH)
+    client.post("/bulletin/envoyer", data={"jeton": t, "confirmation": "oui"}, headers=AUTH)
+    page = client.get("/", headers=AUTH).get_data(as_text=True)
+    assert "Textes publiés" in page and "Retirer" in page
+
+    r = client.post(f"/publication/{publication}/retrait", data={"jeton": t, "motif": "point mal placé"},
+                    headers=AUTH, follow_redirects=True)
+    assert "rectificatif partira" in r.get_data(as_text=True)
+    assert "Rectificatif" in client.get("/bulletin/apercu", headers=AUTH).get_data(as_text=True)
+    assert conn.execute("SELECT statut FROM terre.publication").fetchone()[0] == "retiree"

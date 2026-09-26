@@ -84,13 +84,18 @@ def creer_app(url_base: str | None = None, mot_de_passe: str | None = None, dire
         ):
             avis.setdefault(pid, []).append((validateur, decision, commentaire))
         pretes = bulletin.entrees_pretes(c)
+        retraits = bulletin.retraits_a_annoncer(c)
+        publiees = c.execute(
+            "SELECT id, titre, publie_le FROM terre.publication WHERE statut = 'publiee'"
+            " ORDER BY publie_le DESC LIMIT 10"
+        ).fetchall()
         historique = c.execute(
             "SELECT jour, envoye_le, nb_destinataires, nb_echecs,"
             " (SELECT count(*) FROM terre.bulletin_publication bp WHERE bp.bulletin_id = b.id)"
             " FROM terre.bulletin b ORDER BY envoye_le DESC LIMIT 5"
         ).fetchall()
         return render_template("accueil.html", attente=attente, avis=avis, pretes=pretes,
-                               historique=historique, niveaux=NIVEAUX, types=bulletin.TYPES,
+                               historique=historique, retraits=retraits, publiees=publiees, niveaux=NIVEAUX, types=bulletin.TYPES,
                                directeur=directeur, jeton=session["jeton"], aujourdhui=date.today())
 
     @app.get("/carte/<int:pid>.png")
@@ -127,13 +132,24 @@ def creer_app(url_base: str | None = None, mot_de_passe: str | None = None, dire
             flash(f"Publication {pid} {'validée' if choix == 'valider' else 'retirée'}.", "ok")
         return redirect(url_for("accueil"))
 
+    @app.post("/publication/<int:pid>/retrait")
+    @protege
+    def retrait(pid: int):
+        try:
+            bulletin.retirer(conn(), pid, directeur, request.form.get("motif", ""))
+        except ValueError as e:
+            flash(str(e), "erreur")
+        else:
+            flash(f"Publication {pid} retirée ; un rectificatif partira avec le prochain bulletin.", "ok")
+        return redirect(url_for("accueil") + "#publiees")
+
     @app.get("/bulletin/apercu")
     @protege
     def apercu():
         entrees = bulletin.entrees_pretes(conn())
         for n in entrees:
             n.cid = f"<carte-{n.publication_id}>"
-        page = bulletin.composer_html(entrees, date.today())
+        page = bulletin.composer_html(entrees, date.today(), bulletin.retraits_a_annoncer(conn()))
         for n in entrees:
             page = page.replace(f"cid:carte-{n.publication_id}", url_for("carte", pid=n.publication_id))
         return Response(page, mimetype="text/html")

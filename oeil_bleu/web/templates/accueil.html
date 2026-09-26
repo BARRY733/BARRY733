@@ -100,10 +100,16 @@ a { color: var(--accent); }
 {% endfor %}
 
 <h2 id="bulletin">Bulletin</h2>
-{% if pretes %}
+{% if pretes or retraits %}
 <div class="carte-pub">
+  {% if pretes %}
   <p>{{ pretes|length }} alerte{{ 's' if pretes|length > 1 }} validée{{ 's' if pretes|length > 1 }}, pas encore envoyée{{ 's' if pretes|length > 1 }} :</p>
   <ul>{% for n in pretes %}<li>{{ n.titre }} <span class="meta">({{ n.lieu }})</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if retraits %}
+  <p>Rectificatif{{ 's' if retraits|length > 1 }} à annoncer :</p>
+  <ul>{% for r in retraits %}<li>{{ r.titre }} <span class="meta">— {{ r.motif }}</span></li>{% endfor %}</ul>
+  {% endif %}
   <p><a href="{{ url_for('apercu') }}" target="_blank" rel="noopener">Voir l'aperçu du bulletin</a></p>
   <form method="post" action="{{ url_for('envoyer') }}">
     <input type="hidden" name="jeton" value="{{ jeton }}">
@@ -113,6 +119,19 @@ a { color: var(--accent); }
 </div>
 {% else %}
 <p class="vide">Aucune alerte validée en attente d'envoi.</p>
+{% endif %}
+
+{% if publiees %}
+<h2 id="publiees">Textes publiés</h2>
+<p class="meta">Une erreur ne s'efface pas : retirer un texte l'annonce aux destinataires dans le prochain bulletin.</p>
+{% for pid, titre, publie_le in publiees %}
+<form method="post" action="{{ url_for('retrait', pid=pid) }}" class="carte-pub decision">
+  <input type="hidden" name="jeton" value="{{ jeton }}">
+  <p style="margin:0;flex:1 1 100%"><strong>{{ titre }}</strong> <span class="meta">· envoyé le {{ publie_le.strftime('%d/%m/%Y') }}</span></p>
+  <label>Motif du retrait (obligatoire)<input type="text" name="motif" maxlength="500" required autocomplete="off"></label>
+  <button class="rejeter">Retirer</button>
+</form>
+{% endfor %}
 {% endif %}
 
 {% if historique %}

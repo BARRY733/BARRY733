@@ -170,6 +170,18 @@ Le détail de chaque épisode est écrit dans `episodes.csv`, pour examiner les 
 
 Pour rejouer 2024 avec le radar, collecter aussi `sentinel1` depuis septembre 2023 (référence d'un an). Limites du rejeu : GloFAS et FIRMS ne sont pas rejoués. La fréquence historique de l'eau inclut l'année rejouée elle-même, ce qui rend la détection un peu plus prudente qu'en conditions réelles.
 
+## Intégrité des publications
+
+La base elle-même impose ces règles, quel que soit le programme qui l'utilise :
+
+| Règle | Effet |
+| --- | --- |
+| La dernière décision du directeur fait foi | Un accord suivi d'un rejet vaut rejet : le texte ne peut pas partir |
+| Cycle de vie à sens unique | brouillon → en validation → validé → publié → retiré ; pas de retour en arrière |
+| Texte figé dès la validation | Titre, contenu, niveau et date de publication ne se modifient plus |
+| Rien ne s'efface | Un texte validé, publié ou retiré, ses preuves, les décisions et les bulletins envoyés restent |
+| Correction visible | `python -m oeil_bleu retirer <n°> --par "Nom" --motif "…"` (ou le bouton Retirer de la page) ; le retrait est annoncé en tête du bulletin suivant, sous forme de rectificatif |
+
 ## Modèle Terre
 
 Schéma `terre` dans `db/migrations/001_modele_terre.sql` : zone, événement, indicateur, population exposée, infrastructure, source, preuve, publication, validation.

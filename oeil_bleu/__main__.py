@@ -55,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
         x.add_argument("publication", type=int)
         x.add_argument("--par", required=True, help="nom du directeur de publication")
         x.add_argument("--motif")
+    r = sous.add_parser("retirer", help="retire un texte validé ou publié (annoncé au bulletin suivant)")
+    r.add_argument("publication", type=int)
+    r.add_argument("--par", required=True, help="nom du directeur de publication")
+    r.add_argument("--motif", required=True)
     b = sous.add_parser("bulletin", help="compose le bulletin (aperçu par défaut)")
     b.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
     b.add_argument("--apercu", type=Path, default=Path("bulletin.html"))
@@ -99,6 +103,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(e, file=sys.stderr)
                 return 1
             print(f"Publication {args.publication} {'validée' if args.commande == 'valider' else 'retirée'}.")
+        elif args.commande == "retirer":
+            try:
+                bulletin.retirer(conn, args.publication, args.par, args.motif)
+            except ValueError as e:
+                print(e, file=sys.stderr)
+                return 1
+            print(f"Publication {args.publication} retirée ; le retrait sera annoncé au prochain bulletin.")
         elif args.commande == "bulletin":
             return lancer_bulletin(conn, args)
         elif args.commande == "agents":
