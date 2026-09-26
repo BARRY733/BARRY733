@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+data/*.csv
+!data/points_surveilles.modele.csv

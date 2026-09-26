@@ -1,0 +1,14 @@
+services:
+  base:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - modele_terre:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/sources.sql:/docker-entrypoint-initdb.d/02_sources.sql:ro
+
+volumes:
+  modele_terre:
