@@ -45,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("source")
     q = sous.add_parser("quotidien", help="collecte, détection et agents ; s'arrête avant l'envoi")
     q.add_argument("--sans-agents", action="store_true")
+    w = sous.add_parser("web", help="page de validation du directeur")
+    w.add_argument("--hote", default="127.0.0.1")
+    w.add_argument("--port", type=int, default=8000)
     sous.add_parser("a-valider", help="publications en attente du directeur")
     for nom, aide in (("valider", "le directeur approuve une publication"),
                       ("rejeter", "le directeur retire une publication")):
@@ -67,6 +70,15 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"pas de saison passée pour : {', '.join(sorted(autres))} (possibles : {', '.join(sorted(HISTORIQUE))})")
     if args.commande == "test-a-blanc" and args.debut > args.fin:
         parser.error("--debut doit précéder --fin")
+
+    if args.commande == "web":
+        from .web import creer_app
+        if args.hote not in ("127.0.0.1", "localhost"):
+            print("Attention : la page est exposée au réseau. Placez-la derrière un proxy HTTPS "
+                  "(le mot de passe circule sinon en clair).", file=sys.stderr)
+        print(f"Page de validation : http://{args.hote}:{args.port}")
+        creer_app().run(host=args.hote, port=args.port)
+        return 0
 
     with db.connecter() as conn:
         if args.commande == "migrer":

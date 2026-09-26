@@ -10,7 +10,8 @@ satellite = ["rasterio>=1.3", "numpy"]
 glofas = ["cdsapi>=0.7", "xarray", "netCDF4"]
 agents = ["anthropic>=1.8", "pydantic>=2"]
 carte = ["matplotlib>=3.8"]
-dev = ["pytest>=8", "oeil-bleu[satellite,glofas,agents,carte]"]
+web = ["flask>=3"]
+dev = ["pytest>=8", "oeil-bleu[satellite,glofas,agents,carte,web]"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -18,6 +19,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["oeil_bleu*"]
+
+[tool.setuptools.package-data]
+"oeil_bleu.web" = ["templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

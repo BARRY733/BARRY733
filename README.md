@@ -112,7 +112,20 @@ Modèle : `claude-opus-5` par défaut, modifiable avec `OEIL_BLEU_MODELE`. Les c
 
 ## Bulletin (étape 5)
 
-Le directeur de publication relit chaque texte avant tout envoi :
+### Page de validation
+
+```bash
+pip install -e ".[web]"
+python -m oeil_bleu web          # puis ouvrir http://127.0.0.1:8000
+```
+
+Le directeur y lit chaque texte avec sa carte avant/après, l'avis des agents et les éléments de détection, puis clique sur **Valider** ou **Rejeter** (motif obligatoire). La même page montre l'aperçu du bulletin et l'envoie, après une case de confirmation. Les derniers envois y sont listés.
+
+Sécurité : mot de passe (`DIRECTEUR_MOT_DE_PASSE`), jeton contre la falsification de formulaires, et écoute de la seule machine locale par défaut. Pour y accéder depuis un autre appareil, placer la page derrière un proxy HTTPS (Caddy, Nginx) : sans HTTPS, le mot de passe circule en clair.
+
+### En ligne de commande
+
+Les mêmes actions restent disponibles dans le terminal :
 
 ```bash
 python -m oeil_bleu a-valider                                   # textes en attente, avec l'avis des agents

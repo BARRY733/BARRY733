@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Œil Bleu · Validation</title>
+<style>
+:root {
+  --fond: #f1f0eb; --surface: #fcfcfb; --bord: #e4e3dc;
+  --encre: #1f1f1e; --encre-2: #5f5e58; --accent: #2a78d6;
+  --ok: #006300; --ok-fond: #e6f2e6; --erreur: #b3261e; --erreur-fond: #fbeaea;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #121211; --surface: #1a1a19; --bord: #33332f;
+    --encre: #f4f3ee; --encre-2: #c3c2b7; --accent: #6da7ec;
+    --ok: #7fd17f; --ok-fond: #183018; --erreur: #ff8a80; --erreur-fond: #3a1a18;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fond); color: var(--encre);
+       font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 16px; }
+header .marque { margin: 0; color: var(--accent); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+h1 { margin: 4px 0 2px; font-size: 26px; }
+.sous { color: var(--encre-2); margin: 0 0 20px; }
+h2 { font-size: 18px; margin: 32px 0 12px; }
+.carte-pub { background: var(--surface); border: 1px solid var(--bord); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+.meta { color: var(--encre-2); font-size: 14px; margin: 0 0 4px; }
+.carte-pub h3 { margin: 0 0 10px; font-size: 20px; line-height: 1.3; }
+.carte-pub img { width: 100%; height: auto; border: 1px solid var(--bord); border-radius: 6px; background: #fcfcfb; }
+.texte p { margin: 0 0 10px; }
+details { margin: 12px 0; font-size: 14px; }
+summary { cursor: pointer; color: var(--encre-2); }
+.avis { margin: 8px 0 0; padding: 0; list-style: none; }
+.avis li { padding: 6px 0; border-top: 1px solid var(--bord); }
+.decision { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
+.decision label { flex: 1 1 100%; font-size: 14px; color: var(--encre-2); }
+input[type=text] { width: 100%; padding: 10px; border: 1px solid var(--bord); border-radius: 6px;
+                   background: var(--fond); color: var(--encre); font: inherit; }
+button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; min-height: 44px; }
+.valider { background: var(--accent); color: #fff; }
+.rejeter { background: transparent; color: var(--erreur); border-color: var(--erreur); }
+.envoyer { background: var(--encre); color: var(--surface); }
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.message { padding: 12px 14px; border-radius: 6px; margin-bottom: 12px; }
+.message.ok { background: var(--ok-fond); color: var(--ok); }
+.message.erreur { background: var(--erreur-fond); color: var(--erreur); }
+.vide { color: var(--encre-2); background: var(--surface); border: 1px dashed var(--bord); border-radius: 10px; padding: 18px; }
+.case { display: flex; gap: 8px; align-items: center; margin: 12px 0; font-size: 15px; }
+.case input { width: 20px; height: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--bord); }
+th { color: var(--encre-2); font-weight: 600; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="marque">Œil Bleu · Validation</p>
+  <h1>Bonjour, {{ directeur }}</h1>
+  <p class="sous">
+    {{ attente|length }} texte{{ 's' if attente|length > 1 }} à relire · {{ pretes|length }} prêt{{ 's' if pretes|length > 1 }} pour le bulletin</p>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for categorie, texte in messages %}<div class="message {{ categorie }}" role="status">{{ texte }}</div>{% endfor %}
+{% endwith %}
+
+<h2>À relire</h2>
+{% for pid, titre, contenu, lieu, type_point, niveau, confiance, jour, elements in attente %}
+<article class="carte-pub" id="pub-{{ pid }}">
+  <p class="meta">{{ lieu }} · {{ types.get(type_point, type_point) }} · <strong>{{ niveaux[niveau] }}</strong> ({{ '%.2f'|format(confiance) }}) · détecté le {{ jour.strftime('%d/%m/%Y') }}</p>
+  <h3>{{ titre }}</h3>
+  <img src="{{ url_for('carte', pid=pid) }}" alt="Carte avant et après : {{ lieu }}" loading="lazy"
+       onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'meta',textContent:'Carte indisponible (images satellites inaccessibles).'}))">
+  <div class="texte">{% for p in contenu.split('\n') if p.strip() %}<p>{{ p }}</p>{% endfor %}</div>
+  <details>
+    <summary>Avis des agents et éléments de détection</summary>
+    <ul class="avis">
+      {% for validateur, decision, commentaire in avis.get(pid, []) %}
+      <li><strong>{{ validateur }}</strong> : {{ 'approuvé' if decision == 'approuve' else decision }}{% if commentaire %} — {{ commentaire }}{% endif %}</li>
+      {% endfor %}
+      {% for cle, valeur in elements.items() if cle != 'observations' %}
+      <li>{{ cle }} : {{ valeur }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  <form method="post" action="{{ url_for('decision', pid=pid) }}" class="decision">
+    <input type="hidden" name="jeton" value="{{ jeton }}">
+    <label>Motif (obligatoire pour rejeter)
+      <input type="text" name="motif" maxlength="500" autocomplete="off"></label>
+    <button class="valider" name="choix" value="valider">Valider</button>
+    <button class="rejeter" name="choix" value="rejeter">Rejeter</button>
+  </form>
+</article>
+{% else %}
+<p class="vide">Aucun texte en attente. La chaîne quotidienne en ajoutera dès qu'une crue sera confirmée par les agents.</p>
+{% endfor %}
+
+<h2 id="bulletin">Bulletin</h2>
+{% if pretes %}
+<div class="carte-pub">
+  <p>{{ pretes|length }} alerte{{ 's' if pretes|length > 1 }} validée{{ 's' if pretes|length > 1 }}, pas encore envoyée{{ 's' if pretes|length > 1 }} :</p>
+  <ul>{% for n in pretes %}<li>{{ n.titre }} <span class="meta">({{ n.lieu }})</span></li>{% endfor %}</ul>
+  <p><a href="{{ url_for('apercu') }}" target="_blank" rel="noopener">Voir l'aperçu du bulletin</a></p>
+  <form method="post" action="{{ url_for('envoyer') }}">
+    <input type="hidden" name="jeton" value="{{ jeton }}">
+    <label class="case"><input type="checkbox" name="confirmation" value="oui"> J'ai relu l'aperçu et j'envoie le bulletin à tous les destinataires.</label>
+    <button class="envoyer">Envoyer le bulletin</button>
+  </form>
+</div>
+{% else %}
+<p class="vide">Aucune alerte validée en attente d'envoi.</p>
+{% endif %}
+
+{% if historique %}
+<h2>Derniers envois</h2>
+<table>
+  <thead><tr><th>Envoyé le</th><th>Alertes</th><th>Destinataires</th><th>Échecs</th></tr></thead>
+  <tbody>
+  {% for jour, envoye_le, nb, echecs, alertes in historique %}
+    <tr><td>{{ envoye_le.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ alertes }}</td><td>{{ nb }}</td><td>{{ echecs }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+</main>
+</body>
+</html>
