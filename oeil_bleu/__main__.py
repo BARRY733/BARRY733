@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
                    help=f"parmi {', '.join(COLLECTEURS)} (toutes par défaut)")
     d = sous.add_parser("detecter", help="liste les anomalies du jour sur les points surveillés")
     d.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
+    a = sous.add_parser("agents", help="fait passer les anomalies du jour dans la chaîne des agents")
+    a.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
+    a.add_argument("--confiance-min", type=float, default=0.5)
+    v = sous.add_parser("verifier-licence", help="le directeur confirme la licence d'une source")
+    v.add_argument("source")
     args = parser.parse_args(argv)
     if args.commande == "collecter" and (inconnues := set(args.sources) - set(COLLECTEURS)):
         parser.error(f"source(s) inconnue(s) : {', '.join(sorted(inconnues))}")
@@ -39,6 +44,14 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(faits) if faits else "Base déjà à jour.")
         elif args.commande == "detecter":
             afficher_detection(conn, args.jour)
+        elif args.commande == "agents":
+            return lancer_agents(conn, args.jour, args.confiance_min)
+        elif args.commande == "verifier-licence":
+            if conn.execute("UPDATE terre.source SET licence_verifiee = true WHERE code = %s",
+                            (args.source,)).rowcount == 0:
+                print(f"Source « {args.source} » inconnue.", file=sys.stderr)
+                return 1
+            print(f"Licence de {args.source} confirmée.")
         elif args.commande == "collecter":
             return collecter(conn, args.sources or list(COLLECTEURS))
         else:
@@ -78,6 +91,18 @@ def afficher_detection(conn, jour: date) -> None:
         print(f"  [{NIVEAUX[niv]:>6}] {confiance:.2f}  {nom} ({type_infra})  {type_anom}  {statut}")
     if sans_reference:
         print(f"Points sans fréquence historique, non évalués : {', '.join(sans_reference)}")
+
+
+def lancer_agents(conn, jour: date, confiance_min: float) -> int:
+    from .agents.chaine import traiter_jour
+    from .agents.client import AppelantClaude
+
+    issues = traiter_jour(conn, AppelantClaude(), jour, confiance_min)
+    print(f"Anomalies traitées le {jour:%d/%m/%Y} : {len(issues)}")
+    for i in issues:
+        suite = f" → publication {i.publication_id}" if i.publication_id else ""
+        print(f"  anomalie {i.anomalie_id} : {i.resultat}{suite}  {i.detail}")
+    return 0
 
 
 if __name__ == "__main__":

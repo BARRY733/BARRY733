@@ -9,7 +9,7 @@ Veille satellitaire des crues sur les bassins du Sénégal et du Niger. Le proto
 | 1. Fondations | Base PostGIS avec le Modèle Terre | Fait |
 | 2. Collecte | FIRMS, GloFAS, GDACS, Digital Earth Africa | Fait, à tester sur données réelles |
 | 3. Détection | Anomalies quotidiennes avec niveau de confiance | Fait, seuils à régler au test à blanc |
-| 4. Agents | Analyste, Contradicteur, Rédacteur, Conformité | À venir |
+| 4. Agents | Analyste, Contradicteur, Rédacteur, Conformité | Fait, à essayer avec une clé API |
 | 5. Bulletin | Gabarit, carte avant/après, envoi après validation | À venir |
 | 6. Test à blanc | Taux de fausses alertes sur les crues passées | À venir |
 
@@ -27,7 +27,7 @@ python -m oeil_bleu importer-points data/points_surveilles.csv
 ## Collecte (étape 2)
 
 ```bash
-pip install -e ".[satellite,glofas]"
+pip install -e ".[satellite,glofas,agents]"
 python -m oeil_bleu migrer                   # ajoute les tables de collecte
 python -m oeil_bleu collecter                # toutes les sources
 python -m oeil_bleu collecter gdacs firms    # ou quelques-unes
@@ -71,6 +71,35 @@ Niveau : élevé à partir de 0,75, moyen à partir de 0,50, faible en dessous.
 Une alerte GDACS orange ou rouge sans eau confirmée par satellite donne au plus une « menace de crue » de niveau faible. Si le dernier passage dégagé montre un point sec, l'alerte est ignorée pour ce point. Les points sans fréquence historique ne sont pas évalués et sont listés à part.
 
 Les anomalies sont enregistrées dans `terre.anomalie` avec les observations qui les justifient. Un nouveau calcul du même jour remplace les anomalies non traitées et laisse intactes celles déjà transmises ou écartées. Les seuils sont regroupés en tête de `oeil_bleu/detection.py` pour le réglage de l'étape 6.
+
+## Agents (étape 4)
+
+```bash
+python -m oeil_bleu agents                        # anomalies du jour, confiance ≥ 0,5
+python -m oeil_bleu agents --jour 2024-09-10 --confiance-min 0.75
+python -m oeil_bleu verifier-licence deafrica_wofs   # le directeur confirme une licence
+```
+
+Chaque anomalie passe par quatre agents, dans l'ordre. Chacun peut arrêter la chaîne.
+
+| Agent | Question | Si non |
+| --- | --- | --- |
+| Analyste | Est-ce bien une crue ? Gravité, confiance, impact sur l'accès | Anomalie écartée |
+| Contradicteur | Une autre explication tient-elle (rizière, barrage, mare, erreur de pixel) ? | Rejet : écartée. Doute : reste ouverte pour le prochain passage |
+| Rédacteur | Texte de 120 mots au plus, faits du dossier uniquement | — |
+| Conformité | Mise en cause, sujet sécuritaire, fait non étayé, conseil opérationnel ? | Publication bloquée en brouillon |
+
+Un texte validé par les quatre arrive au directeur en statut `en_validation`, avec ses sources, la mention IA et ses preuves rattachées. La base refuse toujours de le valider sans l'approbation d'un humain.
+
+Garde-fous :
+
+- la confiance retenue est la plus prudente de l'Analyste et du Contradicteur ;
+- une source dont la licence n'est pas confirmée bloque le texte ;
+- les textes venus de l'extérieur (descriptions GDACS) sont traités comme des données, jamais comme des consignes ;
+- si le modèle décline une demande, l'API bascule sur un autre modèle ; si tous déclinent, l'anomalie reste ouverte pour l'humain ;
+- chaque appel est tracé dans `terre.passage_agent` : dossier reçu, réponse, identifiant de requête, jetons consommés.
+
+Modèle : `claude-opus-5` par défaut, modifiable avec `OEIL_BLEU_MODELE`. Les consignes des agents sont dans `oeil_bleu/agents/consignes.py`.
 
 ## Modèle Terre
 
