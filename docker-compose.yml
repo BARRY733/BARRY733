@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: oeil_bleu
+      POSTGRES_USER: oeil_bleu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - donnees:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oeil_bleu -d oeil_bleu"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  donnees:

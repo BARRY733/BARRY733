@@ -1,0 +1,15 @@
+[project]
+name = "oeil-bleu"
+version = "0.1.0"
+description = "Veille satellitaire des crues sur les bassins du Sénégal et du Niger"
+requires-python = ">=3.11"
+dependencies = ["psycopg[binary]>=3.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["oeil_bleu"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
