@@ -5,5 +5,7 @@ __pycache__/
 .pytest_cache/
 data/*.csv
 !data/points_surveilles.modele.csv
+!data/verite_terrain.modele.csv
 data/brut/
 apercu_bulletin.html
+rapport_test_a_blanc.md

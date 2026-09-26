@@ -135,6 +135,32 @@ python -m bulletin envoyer            # diffusion par courriel
 - **Confidentialité** : les destinataires sont en copie cachée.
 - **Traçabilité** : la table `bulletin` garde chaque envoi et ses publications.
 
+## Étape 6 : Test à blanc
+
+```bash
+python -m rejeu data/verite_2024.csv 2024-07-01 2024-10-31 --balayage
+```
+
+Rejoue la collecte et la détection jour après jour sur une saison passée, puis compare les alertes qu'Œil Bleu aurait émises à une **vérité terrain** : rapports ReliefWeb, cartes UNOSAT ou Copernicus EMS, informations du Logistics Cluster.
+
+La vérité terrain se prépare dans `data/verite_terrain.modele.csv`, une ligne par point et par période :
+
+| Colonne | Contenu |
+|---|---|
+| `nom`, `pays_iso` | Un point surveillé déjà chargé |
+| `debut`, `fin` | Période couverte (AAAA-MM-JJ) |
+| `inonde` | `oui` si le point était inondé ou coupé, `non` s'il est attesté resté praticable |
+| `source` | Rapport ou carte qui l'établit |
+
+- **Confirmée** : le point est signalé inondé à la date de l'alerte (tolérance de 8 jours).
+- **Fausse** : le point figure dans la vérité terrain sans y être inondé à cette date.
+- **Non évaluable** : le point n'y figure pas. Les lignes `non` sont donc aussi précieuses que les lignes `oui`.
+- **Précision** = confirmées / (confirmées + fausses) ; critère de passage : 80 %. Le rapport donne aussi le rappel (crues réelles détectées), le délai médian, et la précision obtenue si l'on attendait qu'un épisode atteigne `moyen` ou `eleve` avant de publier.
+- **`--balayage`** compare plusieurs seuils de détection sur les mêmes données, pour les calibrer.
+- **Sans trace** : les scènes collectées restent en base (ce sont de vraies données), mais les événements créés par le rejeu sont annulés. L'outil refuse une base qui contient déjà des publications : utiliser une base dédiée.
+
+Le rapport est écrit dans `rapport_test_a_blanc.md`.
+
 ## Tests
 
 ```bash
@@ -146,4 +172,4 @@ Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais 
 ## Étapes suivantes
 
 2. Collecte : GloFAS reste à brancher.
-6. Test à blanc sur les crues 2024 au Sahel.
+6. Test à blanc : préparer la vérité terrain des crues 2024 au Sahel, puis lancer le rejeu avec l'accès réseau.

@@ -22,6 +22,18 @@ SECS_POUR_CLORE = 2       # scènes sèches consécutives qui closent un épisod
 NIVEAUX = ["a_confirmer", "moyen", "eleve"]
 
 
+@dataclass(frozen=True)
+class Reglages:
+    seuil_historique: float = SEUIL_HISTORIQUE
+    tres_rare: float = TRES_RARE
+    fenetre_jours: int = FENETRE_JOURS
+    rayon_corroboration_m: int = RAYON_CORROBORATION_M
+    secs_pour_clore: int = SECS_POUR_CLORE
+
+
+DEFAUT = Reglages()
+
+
 @dataclass
 class Anomalie:
     point_id: int
@@ -35,10 +47,10 @@ class Anomalie:
     close: bool
 
 
-def confiance(eau: int, frequence: float, corroboree: bool) -> str:
+def confiance(eau: int, frequence: float, corroboree: bool, tres_rare: float = TRES_RARE) -> str:
     niveau = 0
     if eau >= 2:
-        niveau = 2 if frequence < TRES_RARE else 1
+        niveau = 2 if frequence < tres_rare else 1
     if corroboree:
         niveau = min(niveau + 1, 2)
     return NIVEAUX[niveau]
@@ -86,7 +98,7 @@ def _dernier_episode(cur, point_id):
     return cur.fetchone()
 
 
-def _corroboree(cur, point_id, debut, fin, exclure):
+def _corroboree(cur, point_id, debut, fin, exclure, rayon_m):
     """Un autre signal de crue (GDACS, par exemple) à proximité et sur la même période."""
     cur.execute(
         """
@@ -97,15 +109,15 @@ def _corroboree(cur, point_id, debut, fin, exclure):
             AND ST_DWithin(e.geom::geography, i.geom::geography, %s)
             AND e.debut <= %s AND coalesce(e.fin, 'infinity') >= %s)
         """,
-        (point_id, exclure, RAYON_CORROBORATION_M, fin, debut),
+        (point_id, exclure, rayon_m, fin, debut),
     )
     return cur.fetchone()[0]
 
 
-def detecter(cur, jour: date | None = None) -> list[Anomalie]:
+def detecter(cur, jour: date | None = None, reglages: Reglages = DEFAUT) -> list[Anomalie]:
     jour = jour or date.today()
     fin = datetime.combine(jour, time.max, timezone.utc)
-    debut = fin - timedelta(days=FENETRE_JOURS)
+    debut = fin - timedelta(days=reglages.fenetre_jours)
     cur.execute("SELECT id FROM terre.source WHERE code = 'deafrica'")
     source_id = cur.fetchone()[0]
     anomalies = []
@@ -119,7 +131,7 @@ def detecter(cur, jour: date | None = None) -> list[Anomalie]:
             obs = [o for o in obs if o[2] > dernier[1]]
         mouillees = [o for o in obs if o[1]]
 
-        if frequence >= SEUIL_HISTORIQUE or (not mouillees and episode is None):
+        if frequence >= reglages.seuil_historique or (not mouillees and episode is None):
             continue
 
         if episode is None:
@@ -142,11 +154,11 @@ def detecter(cur, jour: date | None = None) -> list[Anomalie]:
         # Clôture : plusieurs scènes sèches après la dernière scène en eau.
         derniere_eau = max((o[2] for o in mouillees), default=None)
         secs_apres = [o for o in obs if not o[1] and (derniere_eau is None or o[2] > derniere_eau)]
-        close = len(secs_apres) >= SECS_POUR_CLORE
+        close = len(secs_apres) >= reglages.secs_pour_clore
 
-        corroboree = _corroboree(cur, point_id, debut, fin, episode)
+        corroboree = _corroboree(cur, point_id, debut, fin, episode, reglages.rayon_corroboration_m)
         # Sans scène claire en eau dans la fenêtre (nuages), on garde le niveau acquis.
-        niveau = confiance(len(mouillees), frequence, corroboree) if mouillees else dernier[2]
+        niveau = confiance(len(mouillees), frequence, corroboree, reglages.tres_rare) if mouillees else dernier[2]
         cur.execute(
             "UPDATE terre.evenement SET confiance = %s, fin = %s WHERE id = %s",
             (niveau, secs_apres[0][2] if close else None, episode),
