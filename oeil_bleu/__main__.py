@@ -51,6 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     w = sous.add_parser("web", help="page de validation du directeur")
     w.add_argument("--hote", default="127.0.0.1")
     w.add_argument("--port", type=int, default=8000)
+    o = sous.add_parser("observatoire", help="exporte l'observatoire en page autonome (données incluses)")
+    o.add_argument("--jour", type=date.fromisoformat, default=date.today(), help="AAAA-MM-JJ")
+    o.add_argument("--export", type=Path, default=Path("observatoire.html"))
     sous.add_parser("a-valider", help="publications en attente du directeur")
     for nom, aide in (("valider", "le directeur approuve une publication"),
                       ("rejeter", "le directeur retire une publication")):
@@ -95,6 +98,10 @@ def main(argv: list[str] | None = None) -> int:
             afficher_detection(conn, args.jour)
         elif args.commande == "quotidien":
             return quotidien(conn, not args.sans_agents)
+        elif args.commande == "observatoire":
+            from .observatoire import instantane, page_autonome
+            args.export.write_text(page_autonome(instantane(conn, args.jour)), encoding="utf-8")
+            print(f"Observatoire au {args.jour:%d/%m/%Y} écrit dans {args.export}")
         elif args.commande == "a-valider":
             for pid, titre, contenu, confiance, avis in bulletin.a_valider(conn):
                 print(f"=== Publication {pid} · confiance {confiance} ===\n{titre}\n\n{contenu}\n\nAvis : {avis}\n")

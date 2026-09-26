@@ -1,0 +1,243 @@
+<title>Œil Bleu · Observatoire</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --fond:#EEF2F5; --surface:#FFFFFF; --surface-2:#F6F8FA; --encre:#16202A; --encre-2:#51606D; --filet:#D8E0E6;
+  --terre:#E4EAEF; --terre-bord:#C3CDD5; --mer:#F7FAFC;
+  --eau:#2A78D6; --eau-pale:#DCEAF8; --inhab:#D9622B;
+  --e-alerte:#C2410C; --e-alerte-fond:#FDE9DF; --e-ok:#17733A; --e-ok-fond:#E3F2E8;
+  --e-perm:#8A5A00; --e-perm-fond:#FBF0D9; --e-inc:#5C6670; --e-inc-fond:#E9EDF0;
+  --affiche:"Archivo","Helvetica Neue",Arial,sans-serif; --texte:"Public Sans","Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --fond:#0D141A; --surface:#141E26; --surface-2:#18242E; --encre:#E6ECF0; --encre-2:#9DAAB5; --filet:#26333D;
+  --terre:#1D2A34; --terre-bord:#34444F; --mer:#111A21; --eau:#5AA2E6; --eau-pale:#1A3148; --inhab:#F08A55;
+  --e-alerte:#FF9E6E; --e-alerte-fond:#3B1E12; --e-ok:#7FD39A; --e-ok-fond:#14301F;
+  --e-perm:#F1C26B; --e-perm-fond:#3A2C10; --e-inc:#AEB8C1; --e-inc-fond:#222D36;}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --fond:#0D141A; --surface:#141E26; --surface-2:#18242E; --encre:#E6ECF0; --encre-2:#9DAAB5; --filet:#26333D;
+  --terre:#1D2A34; --terre-bord:#34444F; --mer:#111A21; --eau:#5AA2E6; --eau-pale:#1A3148; --inhab:#F08A55;
+  --e-alerte:#FF9E6E; --e-alerte-fond:#3B1E12; --e-ok:#7FD39A; --e-ok-fond:#14301F;
+  --e-perm:#F1C26B; --e-perm-fond:#3A2C10; --e-inc:#AEB8C1; --e-inc-fond:#222D36;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond);color:var(--encre);font:15px/1.55 var(--texte);padding-inline:16px;padding-block:0 48px}
+.page{max-width:1240px;margin:0 auto;display:grid;gap:18px}
+.barre{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding-block:18px 14px;border-bottom:1px solid var(--filet)}
+.marque{display:flex;align-items:center;gap:12px}
+.marque b{font:800 20px/1 var(--affiche);letter-spacing:.02em}
+.marque span{font:500 12px/1 var(--mono);color:var(--encre-2);text-transform:uppercase;letter-spacing:.12em}
+.fraicheur{font:500 13px/1.3 var(--mono);color:var(--encre-2)}
+h1{font:800 clamp(24px,3.4vw,32px)/1.15 var(--affiche);margin:0}
+h2{font:600 16px/1.3 var(--texte);margin:0}
+.sous{color:var(--encre-2);margin:4px 0 0;max-width:70ch}
+.chiffres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.chiffre{background:var(--surface);border:1px solid var(--filet);border-radius:10px;padding:14px 16px;display:grid;gap:4px}
+.chiffre dt{font-size:13px;color:var(--encre-2)}
+.chiffre dd{margin:0;font:500 28px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.chiffre small{font-size:13px;color:var(--encre-2)}
+.grille{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:16px;align-items:start}
+.panneau{background:var(--surface);border:1px solid var(--filet);border-radius:12px;overflow:hidden}
+.panneau > header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px;border-bottom:1px solid var(--filet)}
+.panneau > header small{color:var(--encre-2);font-size:13px}
+.carte{background:var(--mer);display:block;width:100%;height:auto}
+.carte path{fill:var(--terre);stroke:var(--terre-bord);stroke-width:.6}
+.carte text{font:500 10px var(--mono);fill:var(--encre-2);letter-spacing:.08em;text-transform:uppercase}
+.carte .site{cursor:pointer}
+.carte .site:focus-visible circle.anneau{stroke:var(--eau);stroke-width:3}
+.liste{list-style:none;margin:0;padding:0}
+.liste button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px 16px;border-top:1px solid var(--filet);cursor:pointer}
+.liste button:hover,.liste button[aria-current="true"]{background:var(--surface-2)}
+.liste button:focus-visible{outline:3px solid var(--eau);outline-offset:-3px}
+.liste b{font-weight:600}
+.liste small{color:var(--encre-2);font-size:13px;grid-column:1}
+.etat{display:inline-flex;width:fit-content;align-items:center;gap:6px;font:500 12px/1.2 var(--mono);padding:4px 8px;border-radius:99px;white-space:nowrap;height:fit-content}
+.etat::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.etat.alerte{color:var(--e-alerte);background:var(--e-alerte-fond)} .etat.surveille{color:var(--e-ok);background:var(--e-ok-fond)}
+.etat.eau_permanente{color:var(--e-perm);background:var(--e-perm-fond)} .etat.incomplet{color:var(--e-inc);background:var(--e-inc-fond)}
+.fiche{padding:18px 16px;display:grid;gap:16px}
+.fiche h3{font:800 22px/1.2 var(--affiche);margin:0}
+.fiche .meta{color:var(--encre-2);font-size:13px}
+.explication{border-left:3px solid currentColor;padding:2px 0 2px 12px;font-size:14px}
+.mesures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:0}
+.mesures div{display:grid;gap:2px}
+.mesures dt{font-size:13px;color:var(--encre-2)}
+.mesures dd{margin:0;font:500 20px/1.2 var(--mono);font-variant-numeric:tabular-nums}
+.mesures dd small{font:13px var(--texte);color:var(--encre-2)}
+.sait{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:14px}
+.sait li{display:grid;grid-template-columns:12px 1fr;gap:10px;align-items:start}
+.sait li::before{content:"";width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--point)}
+.graphes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.graphe{padding:14px 16px 12px;display:grid;gap:8px}
+.graphe svg{display:block;width:100%;height:auto}
+.graphe svg text{font:11px var(--mono);fill:var(--encre-2)}
+.legende{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--encre-2)}
+.legende i{display:inline-block;width:16px;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.note{font-size:12.5px;color:var(--encre-2)}
+.defile{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+th,td{text-align:left;padding:10px 16px;border-top:1px solid var(--filet);vertical-align:top}
+th{font:600 12px/1.3 var(--texte);color:var(--encre-2);text-transform:uppercase;letter-spacing:.06em;background:var(--surface-2)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.vide{padding:28px 16px;color:var(--encre-2)}
+footer{font-size:12px;color:var(--encre-2);padding-top:6px}
+@media (max-width:900px){.grille,.graphes{grid-template-columns:1fr}.chiffres{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+<div class="page">
+  <div class="barre">
+    <div class="marque"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="12.5" ry="7.5" fill="none" stroke="var(--eau)" stroke-width="2"/><circle cx="14" cy="14" r="4.2" fill="var(--eau)"/></svg><b>ŒIL BLEU</b><span>Observatoire</span></div>
+    <div class="fraicheur" id="fraicheur"></div>
+  </div>
+  <div>
+    <h1>État des sites surveillés</h1>
+    <p class="sous">Chaque valeur vient d'une observation satellite enregistrée en base, datée et sourcée. Un site sans donnée est affiché comme tel, jamais complété.</p>
+  </div>
+  <dl class="chiffres" id="chiffres"></dl>
+  <div class="grille">
+    <div class="panneau">
+      <header><h2>Carte</h2><small id="carte-titre"></small></header>
+      <svg class="carte" id="carte" viewBox="0 0 800 520" role="img" aria-label="Carte des sites surveillés"></svg>
+      <ul class="liste" id="liste"></ul>
+    </div>
+    <div class="panneau" id="fiche" aria-live="polite"></div>
+  </div>
+  <div class="graphes">
+    <div class="panneau graphe"><h2 id="t-annuel">Eau au point, année par année</h2><svg id="g-annuel" viewBox="0 0 560 220" role="img"></svg><div class="legende"><span><i style="border-color:var(--eau)"></i>Part des passages en eau</span><span><i style="border-color:var(--inhab)"></i>Seuil d'eau inhabituelle, 20 %</span></div><p class="note">Digital Earth Africa, comptages annuels Landsat. Barres pâles : moins de 5 passages dégagés dans l'année.</p></div>
+    <div class="panneau graphe"><h2>Radar et optique, 14 derniers mois</h2><svg id="g-radar" viewBox="0 0 560 220" role="img"></svg><div class="legende"><span><i style="border-color:var(--eau)"></i>Radar VV (dB)</span><span><i style="border-color:var(--encre-2);border-top-style:dashed"></i>Médiane habituelle</span><span><i style="border-color:var(--inhab)"></i>Seuil eau −18 dB</span><span><i style="border-color:var(--e-ok);border-top-width:7px;width:7px"></i>Optique : eau vue</span></div><p class="note">Sentinel-1 via Digital Earth Africa (moyenne sur 100 m) ; Sentinel-2 et Landsat pour l'optique.</p></div>
+  </div>
+  <div class="panneau">
+    <header><h2>Sources</h2><small>Dernière collecte et licence de chaque source</small></header>
+    <div class="defile"><table><thead><tr><th>Source</th><th>Dernière collecte</th><th>Observations en base</th><th>Licence</th></tr></thead><tbody id="sources"></tbody></table></div>
+  </div>
+  <footer id="pied"></footer>
+</div>
+
+<script>
+(function(){
+var D=/*DONNEES*/null;
+var NS="http://www.w3.org/2000/svg";
+function $(id){return document.getElementById(id);}
+function el(n,a,p,t){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;if(p)p.appendChild(e);return e;}
+function h(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function dateFr(s){if(!s)return "—";var p=String(s).slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];}
+function pct(v){return v==null?"—":Math.round(v*100)+" %";}
+function nb(v,d){return v==null?"—":Number(v).toFixed(d==null?1:d).replace(".",",").replace("-","−");}
+function libRef(r){if(!r)return "—";var m=/^wofs_annuel_(\d{4})-(\d{4})/.exec(r);var t=m?"Digital Earth Africa "+m[1]+"-"+m[2]:/^gsw_occurrence/.test(r)?"Global Surface Water 1984-2021":/^wofs/.test(r)?"Digital Earth Africa":r;return /inclut_la_periode$/.test(r)?t+" (inclut la période)":t;}
+var ETATS={alerte:"Alerte",surveille:"Sous surveillance",eau_permanente:"Point à déplacer",incomplet:"Non évalué"};
+var ORDRE={alerte:0,eau_permanente:1,incomplet:2,surveille:3};
+if(!D){$("fiche").innerHTML='<p class="vide">Aucune donnée chargée.</p>';return;}
+
+$("fraicheur").textContent="Données au "+dateFr(D.jour)+" · extraites le "+dateFr(D.genere_le);
+var sites=D.sites.slice().sort(function(a,b){return ORDRE[a.etat]-ORDRE[b.etat]||a.nom.localeCompare(b.nom,"fr");});
+var alertes=sites.filter(function(s){return s.etat==="alerte";}).length;
+var actives=D.sources.filter(function(s){return s.nb>0;}).length;
+var chiffres=[["Sites surveillés",sites.length,sites.length?"":"Importez vos points"],["Alertes ouvertes",alertes,"anomalies non écartées"],["Textes à valider",D.compteurs.a_valider,D.compteurs.publiees+" déjà publiés"],["Sources avec données",actives,"sur "+D.sources.length+" branchées"]];
+$("chiffres").innerHTML=chiffres.map(function(c){return '<div class="chiffre"><dt>'+h(c[0])+'</dt><dd>'+h(c[1])+'</dd><small>'+h(c[2])+'</small></div>';}).join("");
+
+// Carte
+var E=D.fond.emprise, W=800,H=520, lat0=(E[1]+E[3])/2*Math.PI/180, kx=Math.cos(lat0);
+var sx=W/((E[2]-E[0])*kx), sy=H/(E[3]-E[1]), s=Math.min(sx,sy), ox=(W-(E[2]-E[0])*kx*s)/2, oy=(H-(E[3]-E[1])*s)/2;
+function P(lon,lat){return [ox+(lon-E[0])*kx*s, oy+(E[3]-lat)*s];}
+var carte=$("carte");
+function anneaux(g){var out=[];(function f(x){if(!x)return;if(x.type==="Polygon")out.push(x.coordinates);else if(x.type==="MultiPolygon")x.coordinates.forEach(function(c){out.push(c);});else if(x.type==="GeometryCollection")(x.geometries||[]).forEach(f);})(g);
+  // Un contour découpé au cadre de la carte peut être vide : on l'écarte.
+  return out.filter(function(poly){return poly&&poly.length&&poly[0]&&poly[0].length;});}
+D.fond.pays.forEach(function(p){
+  var d=anneaux(p.geo).map(function(poly){return poly.map(function(r){return "M"+r.map(function(c){var q=P(c[0],c[1]);return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L")+"Z";}).join("");}).join("");
+  if(d){var chemin=el("path",{d:d},carte);el("title",{},chemin,p.nom);}
+});
+D.fond.pays.forEach(function(p){
+  var pts=[];anneaux(p.geo).forEach(function(poly){poly[0].forEach(function(c){pts.push(c);});});
+  if(pts.length<30)return;var mx=0,my=0;pts.forEach(function(c){mx+=c[0];my+=c[1];});var q=P(mx/pts.length,my/pts.length);
+  if(q[0]>30&&q[0]<W-30&&q[1]>14&&q[1]<H-10)el("text",{x:q[0],y:q[1],"text-anchor":"middle"},carte,p.nom);
+});
+$("carte-titre").textContent=sites.length+" site"+(sites.length>1?"s":"")+" · Natural Earth 1:50 m";
+var couleur={alerte:"var(--e-alerte)",surveille:"var(--e-ok)",eau_permanente:"var(--e-perm)",incomplet:"var(--e-inc)"};
+var marqueurs={};
+sites.forEach(function(st){
+  var q=P(st.lon,st.lat), g=el("g",{class:"site",tabindex:0,role:"button","aria-label":st.nom+", "+ETATS[st.etat]},carte);
+  el("circle",{class:"anneau",cx:q[0],cy:q[1],r:13,fill:"none",stroke:"transparent","stroke-width":2},g);
+  el("circle",{cx:q[0],cy:q[1],r:7,fill:couleur[st.etat],stroke:"var(--surface)","stroke-width":2.5},g);
+  el("text",{x:q[0]+12,y:q[1]-10,style:"text-transform:none;font-size:12px;fill:var(--encre)"},g,st.nom);
+  g.addEventListener("click",function(){choisir(st.id);});
+  g.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();choisir(st.id);}});
+  marqueurs[st.id]=g;
+});
+$("liste").innerHTML=sites.length?sites.map(function(st){return '<li><button data-id="'+st.id+'"><b>'+h(st.nom)+'</b><span class="etat '+st.etat+'">'+ETATS[st.etat]+'</span><small>'+h(st.type.replace("_"," "))+" · "+h(st.pays)+'</small></button></li>';}).join(""):'<li class="vide">Aucun point surveillé. Importez la liste avec « importer-points ».</li>';
+$("liste").addEventListener("click",function(e){var b=e.target.closest("button");if(b)choisir(Number(b.dataset.id));});
+
+function savoir(st){
+  var l=[], dg=0, an=Number(String(D.jour).slice(0,4));
+  // Seules les années antérieures servent de référence : on compte celles-là.
+  st.annuel.forEach(function(a){if(a.annee<an)dg+=a.degages;});
+  if(st.frequence!=null)l.push(["var(--e-ok)","Historique : "+(/^wofs_annuel/.test(st.reference)?dg+" passages dégagés, ":"")+libRef(st.reference)+"."]);
+  else l.push(["var(--e-inc)","Aucune fréquence historique : le site ne peut pas être évalué."]);
+  if(st.radar.length)l.push([st.radar_reference!=null?"var(--e-ok)":"var(--e-perm)",st.radar.length+" passages radar"+(st.radar_reference!=null?", référence établie ("+nb(st.radar_reference)+" dB).":", référence pas encore établie (5 passages sur un an nécessaires).")]);
+  else l.push(["var(--e-inc)","Pas de radar : hors d'Afrique ou collecte à lancer."]);
+  var utiles=st.optique.length;
+  l.push([utiles>=3?"var(--e-ok)":"var(--e-perm)",utiles+" passage"+(utiles>1?"s":"")+" optique"+(utiles>1?"s":"")+" exploitable"+(utiles>1?"s":"")+" en base ; les autres étaient sous les nuages ou hors de la fauchée."]);
+  var gd=D.sources.filter(function(s){return (s.code==="gdacs"||s.code==="glofas")&&s.nb>0;}).length;
+  if(gd<2)l.push(["var(--e-inc)","Alertes GDACS et prévisions GloFAS : pas encore reçues."]);
+  return l;
+}
+var courant=null;
+function choisir(id){
+  var st=sites.find(function(x){return x.id===id;});if(!st)return;courant=st;
+  document.querySelectorAll("#liste button").forEach(function(b){b.setAttribute("aria-current",String(Number(b.dataset.id)===id));});
+  Object.keys(marqueurs).forEach(function(k){marqueurs[k].querySelector("circle.anneau").setAttribute("stroke",Number(k)===id?"var(--eau)":"transparent");});
+  var derniere=st.optique.filter(function(o){return o.eau===1;}).slice(-1)[0], dr=st.radar.slice(-1)[0];
+  $("fiche").innerHTML='<header><h2>Site sélectionné</h2><small>'+h(st.lat.toFixed(3))+", "+h(st.lon.toFixed(3))+'</small></header><div class="fiche">'
+   +'<div><h3>'+h(st.nom)+'</h3><div class="meta">'+h(st.type.replace("_"," "))+" · "+h(st.pays)+'</div></div>'
+   +'<span class="etat '+st.etat+'">'+ETATS[st.etat]+'</span>'
+   +'<p class="explication" style="color:'+couleur[st.etat]+'"><span style="color:var(--encre)">'+h(st.explication)+'</span></p>'
+   +'<dl class="mesures">'
+   +'<div><dt>Eau habituelle au point</dt><dd>'+pct(st.frequence)+'<small> · '+h(libRef(st.reference))+'</small></dd></div>'
+   +'<div><dt>Global Surface Water</dt><dd>'+pct(st.gsw)+'<small> · 1984-2021</small></dd></div>'
+   +'<div><dt>Dernière eau vue</dt><dd>'+(derniere?dateFr(derniere.date).slice(0,5):"—")+'<small> · '+(derniere?h(derniere.capteur):"optique")+'</small></dd></div>'
+   +'<div><dt>Radar, dernier passage</dt><dd>'+(dr?nb(dr.db):"—")+'<small> dB · '+(dr?dateFr(dr.date).slice(0,5):"—")+'</small></dd></div>'
+   +'</dl><div><h2 style="margin-bottom:8px">Ce que le système sait, et ne sait pas</h2><ul class="sait">'
+   +savoir(st).map(function(x){return '<li style="--point:'+x[0]+'">'+h(x[1])+'</li>';}).join("")+'</ul></div>'
+   +(st.notes?'<p class="note">Note : '+h(st.notes)+'</p>':'')+'</div>';
+  $("t-annuel").textContent="Eau au point, année par année · "+st.nom;
+  dessinerAnnuel(st);dessinerRadar(st);
+}
+
+function vider(svg){while(svg.firstChild)svg.removeChild(svg.firstChild);}
+function dessinerAnnuel(st){
+  var g=$("g-annuel");vider(g);var W=560,H=220,m={g:40,d:8,h:10,b:26};
+  var a=st.annuel.filter(function(x){return x.annee>=1990;});
+  if(!a.length){el("text",{x:W/2,y:H/2,"text-anchor":"middle"},g,"Pas de comptages annuels pour ce site");return;}
+  var y=function(v){return m.h+(1-v)*(H-m.h-m.b);}, lw=(W-m.g-m.d)/a.length;
+  [0,.5,1].forEach(function(t){el("line",{x1:m.g,x2:W-m.d,y1:y(t),y2:y(t),stroke:"var(--filet)"},g);el("text",{x:m.g-6,y:y(t)+4,"text-anchor":"end"},g,Math.round(t*100)+" %");});
+  a.forEach(function(x,i){var f=x.degages?x.eau/x.degages:0, px=m.g+i*lw+1.5;
+    var r=el("rect",{x:px,y:y(f),width:Math.max(lw-3,1),height:y(0)-y(f),rx:1.5,fill:x.degages<5?"var(--eau-pale)":"var(--eau)"},g);
+    el("title",{},r,x.annee+" : "+x.eau+" en eau sur "+x.degages+" dégagés");
+    if(x.annee%10===0)el("text",{x:px+lw/2,y:H-8,"text-anchor":"middle"},g,x.annee);});
+  el("line",{x1:m.g,x2:W-m.d,y1:y(.2),y2:y(.2),stroke:"var(--inhab)","stroke-width":1.5},g);
+}
+function dessinerRadar(st){
+  var g=$("g-radar");vider(g);var W=560,H=220,m={g:40,d:10,h:10,b:26};
+  var fin=Date.parse(String(D.jour).slice(0,10)), debut=fin-425*864e5;
+  var r=st.radar.filter(function(x){return Date.parse(x.date)>=debut;}), o=st.optique.filter(function(x){return x.eau===1&&Date.parse(x.date)>=debut;});
+  if(!r.length&&!o.length){el("text",{x:W/2,y:H/2,"text-anchor":"middle"},g,"Aucun passage sur la période");return;}
+  var ymin=-22,ymax=-8, X=function(d){return m.g+(Date.parse(d)-debut)/(fin-debut)*(W-m.g-m.d);}, Y=function(v){return m.h+(ymax-v)/(ymax-ymin)*(H-m.h-m.b);};
+  [-8,-13,-18,-22].forEach(function(v){el("line",{x1:m.g,x2:W-m.d,y1:Y(v),y2:Y(v),stroke:"var(--filet)"},g);el("text",{x:m.g-6,y:Y(v)+4,"text-anchor":"end"},g,String(v).replace("-","−"));});
+  for(var i=0;i<=14;i+=3){var d=new Date(debut);d.setUTCMonth(d.getUTCMonth()+i,1);if(d.getTime()<=fin)el("text",{x:X(d.toISOString().slice(0,10)),y:H-8,"text-anchor":"middle"},g,["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."][d.getUTCMonth()]+" "+String(d.getUTCFullYear()).slice(2));}
+  if(st.radar_reference!=null)el("line",{x1:m.g,x2:W-m.d,y1:Y(st.radar_reference),y2:Y(st.radar_reference),stroke:"var(--encre-2)","stroke-dasharray":"5 4"},g);
+  el("line",{x1:m.g,x2:W-m.d,y1:Y(-18),y2:Y(-18),stroke:"var(--inhab)","stroke-width":1.5},g);
+  if(r.length>1)el("polyline",{points:r.map(function(x){return X(x.date)+","+Y(x.db);}).join(" "),fill:"none",stroke:"var(--eau)","stroke-width":2},g);
+  r.forEach(function(x,i){var c=el("circle",{cx:X(x.date),cy:Y(x.db),r:i===r.length-1?4.5:3,fill:"var(--eau)",stroke:"var(--surface)","stroke-width":1.2},g);el("title",{},c,dateFr(x.date)+" : "+nb(x.db,2)+" dB");});
+  o.forEach(function(x){var q=el("rect",{x:X(x.date)-3.5,y:H-m.b+3,width:7,height:7,fill:"var(--e-ok)"},g);el("title",{},q,dateFr(x.date)+" : eau vue ("+x.capteur+")");});
+}
+
+$("sources").innerHTML=D.sources.map(function(s){
+  var st=s.statut==="reussie"?"surveille":s.statut==="echouee"?"alerte":"incomplet";
+  var lib=s.statut==="reussie"?"Réussie":s.statut==="echouee"?"Échec":"Jamais lancée";
+  return '<tr><td><b>'+h(s.nom)+'</b><br><small class="note">'+h(s.code)+'</small></td><td><span class="etat '+st+'">'+lib+'</span> <span class="note">'+(s.derniere?dateFr(s.derniere):"")+'</span>'+(s.erreur?'<br><small class="note">'+h(String(s.erreur).slice(0,90))+'</small>':'')+'</td><td class="num">'+h(s.nb)+'</td><td><span class="etat '+(s.licence_verifiee?"surveille":"eau_permanente")+'">'+(s.licence_verifiee?"Confirmée":"À confirmer")+'</span></td></tr>';
+}).join("");
+var annee=String(D.jour).slice(0,4);
+$("pied").textContent="Sources : "+D.sources.filter(function(s){return s.nb>0;}).map(function(s){return s.attribution.replace("{annee}",annee);}).join(" ; ")+". Fond de carte : Natural Earth.";
+if(sites.length)choisir(sites[0].id);
+})();
+</script>

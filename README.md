@@ -143,6 +143,15 @@ docker compose --profile web up -d
 
 Caddy obtient et renouvelle seul le certificat HTTPS ; l'application tourne derrière lui avec gunicorn. En production, le cookie de session n'est envoyé qu'en HTTPS et une clé de session fixe (`OEIL_BLEU_SECRET`) est exigée.
 
+### Observatoire
+
+L'état de chaque site surveillé, tiré de la base et de rien d'autre : carte, fiche du site (verdict, mesures, ce que le système sait et ne sait pas), eau année par année, radar et optique sur 14 mois, état et licence de chaque source.
+
+- Dans l'application : `/observatoire` (même mot de passe que la page de validation).
+- En page autonome, données incluses, à ouvrir sans serveur : `python -m oeil_bleu observatoire --export observatoire.html [--jour AAAA-MM-JJ]`.
+
+Un site dont l'eau est presque toujours présente (plus de 50 % du temps) est signalé « point à déplacer » : aucune crue n'y serait détectable.
+
 ### En ligne de commande
 
 Les mêmes actions restent disponibles dans le terminal :

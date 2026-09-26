@@ -103,6 +103,13 @@ def creer_app(url_base: str | None = None, mot_de_passe: str | None = None, dire
                                historique=historique, retraits=retraits, publiees=publiees, niveaux=NIVEAUX, types=bulletin.TYPES,
                                directeur=directeur, jeton=session["jeton"], aujourdhui=date.today())
 
+    @app.get("/observatoire")
+    @protege
+    def observatoire():
+        from ..observatoire import instantane, page_autonome
+
+        return Response(page_autonome(instantane(conn())), mimetype="text/html")
+
     @app.get("/carte/<int:pid>.png")
     @protege
     def carte(pid: int):

@@ -58,7 +58,7 @@ a { color: var(--accent); }
 <body>
 <main>
 <header>
-  <p class="marque">Œil Bleu · Validation</p>
+  <p class="marque">Œil Bleu · Validation · <a href="{{ url_for('observatoire') }}">Observatoire</a></p>
   <h1>Bonjour, {{ directeur }}</h1>
   <p class="sous">
     {{ attente|length }} texte{{ 's' if attente|length > 1 }} à relire · {{ pretes|length }} prêt{{ 's' if pretes|length > 1 }} pour le bulletin</p>
