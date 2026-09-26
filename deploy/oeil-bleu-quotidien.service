@@ -1,0 +1,11 @@
+[Unit]
+Description=Œil Bleu : collecte, détection et agents
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=oeilbleu
+WorkingDirectory=/opt/oeil-bleu
+Environment=PATH=/opt/oeil-bleu/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/oeil-bleu/scripts/quotidien.sh

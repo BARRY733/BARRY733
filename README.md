@@ -161,11 +161,27 @@ La vérité terrain se prépare dans `data/verite_terrain.modele.csv`, une ligne
 
 Le rapport est écrit dans `rapport_test_a_blanc.md`.
 
+## Exploitation quotidienne
+
+`scripts/quotidien.sh` enchaîne collecte, détection et agents, puis liste les textes qui attendent le directeur. Rien n'est publié sans lui. Une étape en échec n'arrête pas les suivantes, mais le script sort en erreur pour le signaler.
+
+Sur le serveur, les fichiers `deploy/oeil-bleu-quotidien.service` et `.timer` le lancent chaque jour à 05 h 17 UTC :
+
+```bash
+sudo cp deploy/oeil-bleu-quotidien.* /etc/systemd/system/
+sudo systemctl enable --now oeil-bleu-quotidien.timer
+journalctl -u oeil-bleu-quotidien   # journal des exécutions
+```
+
+Ils supposent le code dans `/opt/oeil-bleu`, un environnement Python dans `.venv` et un utilisateur système `oeilbleu`.
+
 ## Tests
 
 ```bash
 DATABASE_URL=... pytest -q
 ```
+
+GitHub Actions les relance à chaque envoi de code, sur une base PostGIS jetable (`.github/workflows/tests.yml`).
 
 Les tests recréent le schéma `terre` : à lancer sur une base de test, jamais sur la base de production.
 

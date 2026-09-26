@@ -1,0 +1,11 @@
+[Unit]
+Description=Lancement quotidien de la chaîne Œil Bleu
+
+[Timer]
+# 05:17 UTC : après les passages satellites de la nuit, avant la relecture du directeur.
+OnCalendar=*-*-* 05:17:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
