@@ -14,5 +14,36 @@ services:
       interval: 5s
       retries: 10
 
+  # Page de validation en HTTPS : docker compose --profile web up -d
+  web:
+    profiles: ["web"]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://oeil_bleu:${POSTGRES_PASSWORD}@db:5432/oeil_bleu
+      OEIL_BLEU_HTTPS: "1"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    profiles: ["web"]
+    image: caddy:2
+    environment:
+      DOMAINE: ${DOMAINE:-localhost}   # domaine public dans .env, ex. validation.oeilbleu.org
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_certificats:/data
+    depends_on:
+      - web
+    restart: unless-stopped
+
 volumes:
   donnees:
+  caddy_certificats:

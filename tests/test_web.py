@@ -117,3 +117,12 @@ def test_retrait_depuis_la_page(client, publication, conn):  # noqa: F811
     assert "rectificatif partira" in r.get_data(as_text=True)
     assert "Rectificatif" in client.get("/bulletin/apercu", headers=AUTH).get_data(as_text=True)
     assert conn.execute("SELECT statut FROM terre.publication").fetchone()[0] == "retiree"
+
+
+def test_production_exige_une_cle_de_session(monkeypatch):
+    monkeypatch.setenv("OEIL_BLEU_HTTPS", "1")
+    monkeypatch.delenv("OEIL_BLEU_SECRET", raising=False)
+    with pytest.raises(RuntimeError, match="OEIL_BLEU_SECRET"):
+        creer_app("postgresql://inutile", MDP, "A. Directeur")
+    monkeypatch.setenv("OEIL_BLEU_SECRET", "x" * 64)
+    assert creer_app("postgresql://inutile", MDP, "A. Directeur").config["SESSION_COOKIE_SECURE"] is True

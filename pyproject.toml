@@ -10,7 +10,7 @@ satellite = ["rasterio>=1.3", "numpy", "pyproj>=3.6"]
 glofas = ["cdsapi>=0.7", "xarray", "netCDF4"]
 agents = ["anthropic>=1.8", "pydantic>=2"]
 carte = ["matplotlib>=3.8"]
-web = ["flask>=3"]
+web = ["flask>=3", "gunicorn>=22"]
 dev = ["pytest>=8", "oeil-bleu[satellite,glofas,agents,carte,web]"]
 
 [build-system]

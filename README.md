@@ -132,7 +132,16 @@ python -m oeil_bleu web          # puis ouvrir http://127.0.0.1:8000
 
 Le directeur y lit chaque texte avec sa carte avant/après, l'avis des agents et les éléments de détection, puis clique sur **Valider** ou **Rejeter** (motif obligatoire). La même page montre l'aperçu du bulletin et l'envoie, après une case de confirmation. Les derniers envois y sont listés.
 
-Sécurité : mot de passe (`DIRECTEUR_MOT_DE_PASSE`), jeton contre la falsification de formulaires, et écoute de la seule machine locale par défaut. Pour y accéder depuis un autre appareil, placer la page derrière un proxy HTTPS (Caddy, Nginx) : sans HTTPS, le mot de passe circule en clair.
+Sécurité : mot de passe (`DIRECTEUR_MOT_DE_PASSE`), jeton contre la falsification de formulaires, et écoute de la seule machine locale par défaut.
+
+**Accès depuis un téléphone, en HTTPS.** Sur le serveur, avec un nom de domaine qui pointe vers lui (ports 80 et 443 ouverts) :
+
+```bash
+# dans .env : DOMAINE, DIRECTEUR_NOM, DIRECTEUR_MOT_DE_PASSE, OEIL_BLEU_SECRET
+docker compose --profile web up -d
+```
+
+Caddy obtient et renouvelle seul le certificat HTTPS ; l'application tourne derrière lui avec gunicorn. En production, le cookie de session n'est envoyé qu'en HTTPS et une clé de session fixe (`OEIL_BLEU_SECRET`) est exigée.
 
 ### En ligne de commande
 

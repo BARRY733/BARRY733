@@ -23,8 +23,13 @@ def creer_app(url_base: str | None = None, mot_de_passe: str | None = None, dire
               smtp=None, fabrique_carte=None) -> Flask:
     """smtp et fabrique_carte se remplacent dans les tests ; par défaut, les vrais."""
     app = Flask(__name__)
-    app.secret_key = os.environ.get("OEIL_BLEU_SECRET") or secrets.token_hex(32)
-    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
+    secret = os.environ.get("OEIL_BLEU_SECRET")
+    if not secret and os.environ.get("OEIL_BLEU_HTTPS") == "1":
+        raise RuntimeError("OEIL_BLEU_SECRET doit être défini en production (voir .env.example)")
+    app.secret_key = secret or secrets.token_hex(32)
+    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict",
+                      # Derrière le proxy HTTPS, le cookie de session ne circule jamais en clair.
+                      SESSION_COOKIE_SECURE=os.environ.get("OEIL_BLEU_HTTPS") == "1")
     mot_de_passe = mot_de_passe or os.environ.get("DIRECTEUR_MOT_DE_PASSE")
     directeur = directeur or os.environ.get("DIRECTEUR_NOM")
     if not mot_de_passe or not directeur:

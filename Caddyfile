@@ -1,0 +1,7 @@
+# Page de validation publiée en HTTPS. Caddy obtient et renouvelle seul le certificat
+# (Let's Encrypt) pour le domaine DOMAINE, qui doit pointer vers ce serveur (ports 80 et 443 ouverts).
+{$DOMAINE} {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy web:8000
+}
