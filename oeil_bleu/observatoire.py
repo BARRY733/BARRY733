@@ -152,11 +152,13 @@ def instantane(conn: psycopg.Connection, jour: date | None = None) -> dict:
 
 
 def fond_de_carte(conn) -> dict:
-    """Pays d'Afrique (Natural Earth 1:50 m, simplifiés), fleuves et lacs."""
-    pays = [{"nom": n, "code": c, "geo": json.loads(g)} for n, c, g in conn.execute(
-        "SELECT p.nom, p.code, ST_AsGeoJSON(ST_SimplifyPreserveTopology(p.geom, 0.03), 3)"
-        " FROM terre.zone p JOIN terre.zone c ON c.id = p.parent_id"
-        " WHERE p.type = 'pays' AND c.code = 'afrique'")]
+    """Pays du monde (Natural Earth 1:50 m, simplifiés), fleuves et lacs d'Afrique."""
+    # L'Afrique au 1:50 m finement simplifié ; le reste du monde plus grossièrement, pour la vue Monde.
+    pays = [{"nom": n, "code": c, "afrique": a, "geo": json.loads(g)} for n, c, a, g in conn.execute(
+        "SELECT p.nom, p.code, c.code = 'afrique',"
+        " CASE WHEN c.code = 'afrique' THEN ST_AsGeoJSON(ST_SimplifyPreserveTopology(p.geom, 0.03), 3)"
+        "      ELSE ST_AsGeoJSON(ST_SimplifyPreserveTopology(p.geom, 0.15), 1) END"
+        " FROM terre.zone p JOIN terre.zone c ON c.id = p.parent_id WHERE p.type = 'pays'")]
     lire = lambda f: json.loads((FOND / f).read_text(encoding="utf-8")) if (FOND / f).exists() else None
     return {"pays": pays, "rivieres": lire("rivieres_afrique.geojson"), "lacs": lire("lacs_afrique.geojson")}
 
